@@ -1,276 +1,161 @@
-# UP-Fix — ระบบแจ้งซ่อมอัจฉริยะ กองอาคารสถานที่ มหาวิทยาลัยพะเยา
+# UP-Fix — Smart Maintenance Request System
 
-**Spec version:** 1.0
-**Status:** Draft for implementation
-**Owner:** กองอาคารสถานที่ มหาวิทยาลัยพะเยา
-**Last updated:** 2026-08-18
+**Division of Buildings and Grounds, University of Phayao**
+
+| | |
+|---|---|
+| **Spec version** | 2.0 |
+| **Status** | Draft for implementation |
+| **Owner** | Division of Buildings and Grounds, University of Phayao |
+| **Stack** | PHP (API) · Vanilla JS + HTML/CSS (Frontend) · Microsoft SQL Server |
+| **Last updated** | 2026-08-18 |
 
 ---
 
-## 1. Overview
+## 1. Goal
 
-### 1.1 ปัญหา
+Build a maintenance request system where a reporter simply **takes a photo and types a short sentence**, and AI does the rest: classifies the work type, assesses urgency, identifies the location, detects duplicates, predicts required materials, and routes the job to the correct technician team.
 
-ปัจจุบันการแจ้งซ่อมภายในมหาวิทยาลัยกระจายอยู่หลายช่องทาง (โทรศัพท์ LINE ส่วนตัว กระดาษ เดินมาบอกด้วยตัวเอง) ทำให้เกิดปัญหา:
+### 1.1 Problems being solved
 
-| ปัญหา | ผลที่ตามมา |
+Maintenance requests are currently scattered across phone calls, personal LINE chats, paper forms, and walk-ins.
+
+| Problem | Consequence |
 |---|---|
-| ผู้แจ้งไม่รู้ว่างานที่แจ้งเป็นประเภทไหน | จ่ายงานผิดสาย ต้องส่งต่อ เสียเวลา |
-| ผู้แจ้งอธิบายอาการไม่ตรงกับสาเหตุจริง | ช่างไปหน้างานโดยไม่ได้เตรียมอะไหล่ ต้องกลับมาใหม่ |
-| ไม่มีการจัดลำดับความเร่งด่วน | งานอันตราย (สายไฟเปลือย ฝ้าถล่ม) ปนอยู่กับงานทั่วไป |
-| แจ้งซ้ำจุดเดิมหลายคน | เกิดใบสั่งงานซ้ำซ้อน |
-| ไม่มีข้อมูลย้อนหลังที่เป็นระบบ | ของบประมาณโดยไม่มีหลักฐาน |
-| ผู้แจ้งไม่รู้สถานะ | โทรตามซ้ำ เพิ่มภาระเจ้าหน้าที่ |
+| Reporters don't know which trade a fault belongs to | Jobs routed to the wrong team, re-routing wastes days |
+| Reporters describe symptoms, not causes | Technicians arrive without the right parts and must return |
+| No urgency triage | Dangerous faults (exposed wiring, collapsing ceilings) sit in the same queue as cosmetic ones |
+| Multiple people report the same fault | Duplicate work orders |
+| No structured historical data | Budget requests have no evidence behind them |
+| Reporters can't see progress | Repeated follow-up calls burden staff |
 
-### 1.2 เป้าหมาย
+### 1.2 Non-Goals
 
-สร้างระบบรับแจ้งซ่อมที่ผู้ใช้ **ถ่ายรูปและพิมพ์ข้อความสั้น ๆ** แล้ว AI ทำงานที่เหลือแทน: จำแนกประเภทงาน ประเมินความเร่งด่วน ระบุตำแหน่ง ตรวจจับงานซ้ำ คาดการณ์วัสดุที่ต้องใช้ และจ่ายงานให้ช่างสายที่ถูกต้อง
+Explicitly out of scope, to prevent scope creep:
 
-### 1.3 Non-goals (ไม่อยู่ในขอบเขต)
-
-ระบุไว้ชัดเจนเพื่อกันขอบเขตบานปลาย:
-
-- ❌ ไม่ทำระบบจัดซื้อ/เบิกจ่ายพัสดุ (เชื่อมต่อเท่านั้น)
-- ❌ ไม่ทำระบบประเมินผลงานช่างรายบุคคล (ดู §9.4 ข้อห้ามเชิงจริยธรรม)
-- ❌ ไม่ทำ IoT/เซนเซอร์ตรวจจับอัตโนมัติในเฟสนี้
-- ❌ ไม่ทำระบบจองห้อง/ยานพาหนะ (มีระบบเดิมอยู่แล้ว)
-- ❌ ไม่แทนที่การตัดสินใจของหัวหน้าช่าง — AI เสนอ มนุษย์อนุมัติ
-- ❌ ไม่ทำ mobile app แยก (ใช้ LINE OA + Web)
+- ❌ Procurement / disbursement workflows (integrate only)
+- ❌ Individual technician performance evaluation (see §10.4)
+- ❌ IoT sensors or automated fault detection in this phase
+- ❌ Room or vehicle booking (existing systems already cover this)
+- ❌ Replacing human decision-making — AI proposes, humans approve
+- ❌ A native mobile app (LINE OA + LIFF + web only)
+- ❌ Any JS framework requiring a build step (React/Vue/Next) — the frontend is plain HTML/CSS/JS
 
 ---
 
 ## 2. Personas & User Stories
 
-### 2.1 ผู้แจ้ง (นิสิต / อาจารย์ / บุคลากร)
+### 2.1 Reporter (student / faculty / staff)
 
-| # | User Story |
+| # | Story |
 |---|---|
-| R-1 | ในฐานะนิสิต ฉันต้องการถ่ายรูปจุดชำรุดส่งทาง LINE แล้วจบ โดยไม่ต้องรู้ว่าเป็นงานประเภทไหน |
-| R-2 | ในฐานะผู้แจ้ง ฉันต้องการรู้ว่าเรื่องของฉันอยู่ขั้นตอนไหน และคาดว่าจะเสร็จเมื่อไหร่ |
-| R-3 | ในฐานะผู้แจ้ง ฉันต้องการรู้ทันทีถ้าเรื่องนี้มีคนแจ้งไปแล้ว จะได้ไม่ต้องแจ้งซ้ำ |
+| R-1 | As a student, I want to photograph a fault and send it via LINE, without knowing what trade it belongs to. |
+| R-2 | As a reporter, I want to know what stage my request is at and when it will be resolved. |
+| R-3 | As a reporter, I want to be told immediately if someone already reported this, so I don't duplicate it. |
 
-### 2.2 เจ้าหน้าที่ธุรการ / ผู้คัดกรอง (Triage Officer)
+### 2.2 Triage Officer
 
-| # | User Story |
+| # | Story |
 |---|---|
-| T-1 | ในฐานะผู้คัดกรอง ฉันต้องการเห็นงานที่ AI ไม่มั่นใจแยกออกมาเป็นคิวเฉพาะ เพื่อตัดสินใจเอง |
-| T-2 | ในฐานะผู้คัดกรอง ฉันต้องการแก้ไขการจำแนกของ AI ได้ และระบบต้องเรียนรู้จากการแก้ไขนั้น |
-| T-3 | ในฐานะผู้คัดกรอง ฉันต้องการเห็นงานอันตรายเด้งขึ้นมาก่อนเสมอ |
+| T-1 | As a triage officer, I want low-confidence AI results in a separate queue so I can decide myself. |
+| T-2 | As a triage officer, I want to correct the AI's classification, and have that correction recorded for future improvement. |
+| T-3 | As a triage officer, I want hazardous jobs surfaced at the top, always. |
 
-### 2.3 ช่างภาคสนาม (Technician)
+### 2.3 Field Technician
 
-| # | User Story |
+| # | Story |
 |---|---|
-| F-1 | ในฐานะช่าง ฉันต้องการเห็นรูปและอาการก่อนไปหน้างาน เพื่อเตรียมอะไหล่ให้ถูก |
-| F-2 | ในฐานะช่าง ฉันต้องการปิดงานด้วยการถ่ายรูปหลังซ่อมจากมือถือ |
-| F-3 | ในฐานะช่าง ฉันต้องการดูประวัติการซ่อมของอุปกรณ์ตัวนี้ที่ผ่านมา |
+| F-1 | As a technician, I want to see the photo and symptoms before I go, so I bring the right parts. |
+| F-2 | As a technician, I want to close a job by taking an "after" photo on my phone. |
+| F-3 | As a technician, I want to see this asset's repair history. |
 
-### 2.4 หัวหน้างาน / ผู้อำนวยการกอง (Manager)
+### 2.4 Manager / Division Director
 
-| # | User Story |
+| # | Story |
 |---|---|
-| M-1 | ในฐานะหัวหน้างาน ฉันต้องการเห็นงานค้าง งานเกิน SLA และภาระงานของแต่ละสาย |
-| M-2 | ในฐานะผู้อำนวยการ ฉันต้องการรู้ว่าอาคารไหน/อุปกรณ์ไหนซ่อมซ้ำจนควรเปลี่ยนใหม่ |
+| M-1 | As a supervisor, I want to see open jobs, SLA breaches, and workload per team. |
+| M-2 | As a director, I want to know which buildings and assets are repaired so often they should be replaced. |
 
 ---
 
-## 3. สถาปัตยกรรมระบบ
+## 3. System Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│   LINE OA       │     │  Web Dashboard  │
-│  (ผู้แจ้ง/ช่าง)  │     │ (จนท./ผู้บริหาร) │
-└────────┬────────┘     └────────┬────────┘
-         │ webhook               │ HTTPS
-         └───────────┬───────────┘
-                     ▼
-         ┌───────────────────────┐
-         │   API Layer (Express) │
-         │   - Auth / RBAC       │
-         │   - Rate limit        │
-         │   - Idempotency       │
-         └───────────┬───────────┘
-                     │
-      ┌──────────────┼──────────────┐
-      ▼              ▼              ▼
-┌───────────┐  ┌───────────┐  ┌───────────┐
-│  Job      │  │ PostgreSQL│  │  Object   │
-│  Queue    │  │ +pgvector │  │  Storage  │
-│ (BullMQ)  │  │           │  │  (S3/MinIO)│
-└─────┬─────┘  └───────────┘  └───────────┘
-      │
-      ▼  (async worker)
-┌────────────────────────────────────┐
-│      AI Triage Pipeline            │
-│  1. PII redaction (เบลอหน้า/ทะเบียน)│
-│  2. Image quality gate             │
-│  3. Vision classification (Claude) │
-│  4. Duplicate detection (embedding)│
-│  5. Routing rules (โค้ด ไม่ใช่ LLM) │
-└────────────────────────────────────┘
+┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│    LINE OA       │   │  LIFF (tech UI)  │   │  Web Dashboard   │
+│  (reporters)     │   │  HTML/CSS/JS     │   │  HTML/CSS/JS     │
+└────────┬─────────┘   └────────┬─────────┘   └────────┬─────────┘
+         │ webhook              │ fetch()              │ fetch()
+         └──────────────┬───────┴──────────────────────┘
+                        ▼
+        ┌───────────────────────────────────┐
+        │   PHP API  (public/index.php)     │
+        │   Router → Middleware → Controller│
+        │   Auth(JWT) · RBAC · Rate limit   │
+        │   Idempotency · JSON Schema valid │
+        └───────────────┬───────────────────┘
+                        │ PDO (sqlsrv)
+        ┌───────────────┼────────────────────┐
+        ▼               ▼                    ▼
+┌────────────────┐ ┌──────────────┐  ┌──────────────────┐
+│  SQL Server    │ │  job_queue   │  │  storage/media/  │
+│  (tables §5)   │ │  (DB table)  │  │  (outside root)  │
+└────────────────┘ └──────┬───────┘  └──────────────────┘
+                          │ polling
+                          ▼
+        ┌───────────────────────────────────┐
+        │  PHP CLI Worker (bin/worker.php)  │
+        │  1. PII redaction (Imagick)       │
+        │  2. Image quality gate            │
+        │  3. Vision classification (Claude)│
+        │  4. Duplicate detection           │
+        │  5. Routing rules (pure code)     │
+        └───────────────────────────────────┘
 ```
 
-**หลักการสำคัญ:** LLM ทำหน้าที่ *เข้าใจภาษาและภาพ* เท่านั้น การตัดสินใจเชิงกฎ (SLA, การจ่ายงาน, การคำนวณต้นทุน) ทำด้วยโค้ดที่ตรวจสอบได้
+**Architectural principles**
+
+1. The LLM only *understands language and images*. All rule-based decisions (SLA, routing, cost calculations) are plain PHP code that can be audited and unit-tested.
+2. All AI work is **asynchronous**. The API responds immediately; the worker processes in the background.
+3. No Redis, no Elasticsearch, no vector database — SQL Server alone, to minimise the operational burden on university IT.
 
 ---
 
-## 4. Data Model
+## 4. Requirements
 
-### 4.1 `buildings`
+### 4.1 Work Type Taxonomy
 
-| Column | Type | Notes |
+| `category` | Example `subcategory` | Responsible team |
 |---|---|---|
-| `id` | uuid PK | |
-| `code` | varchar(20) UNIQUE | เช่น `ICT`, `PKY`, `CE` |
-| `name_th` | text | |
-| `zone` | varchar(50) | โซนพื้นที่สำหรับจ่ายงานตามระยะทาง |
-| `lat`, `lng` | numeric | ใช้จับคู่กับ GPS ของผู้แจ้ง |
-| `floors` | int | |
-| `gross_area_sqm` | numeric | สำหรับสถิติงานซ่อมต่อพื้นที่ |
+| `electrical` | `light_out`, `power_outage`, `breaker_trip`, `exposed_wire`, `socket_damaged` | Utilities — Electrical |
+| `plumbing` | `leak`, `clog`, `no_water`, `toilet_broken`, `drain_blocked` | Utilities — Plumbing |
+| `hvac` | `ac_not_cooling`, `ac_water_drip`, `ac_noise`, `ac_remote` | Utilities — HVAC |
+| `structural` | `ceiling_collapse`, `wall_crack`, `door_window`, `tile_broken`, `roof_leak` | Buildings |
+| `elevator` | `stuck`, `door_fault`, `noise` | External contractor |
+| `landscape` | `tree_fallen`, `branch_risk`, `overgrown`, `irrigation` | Grounds & Landscape |
+| `safety` | `street_light_out`, `cctv_fault`, `extinguisher_expired`, `fire_alarm` | Security |
+| `civil` | `road_pothole`, `manhole_missing`, `walkway_damaged` | Buildings |
+| `furniture` | `desk_chair_broken`, `whiteboard`, `cabinet` | Buildings |
+| `other` | — | Human triage queue |
 
-### 4.2 `assets` — ทะเบียนอุปกรณ์
+Declared once in `src/Domain/Taxonomy.php`, from which the SQL `CHECK` constraints and the frontend JSON are generated.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `asset_code` | varchar(50) UNIQUE | เช่น `AC-ICT-1301-02` |
-| `building_id` | uuid FK | |
-| `floor` | int | |
-| `room` | varchar(50) | |
-| `category` | enum | ตาม §5.1 |
-| `brand`, `model` | text | nullable |
-| `installed_at` | date | nullable — ใช้คำนวณอายุ |
-| `replacement_cost` | numeric | สำหรับวิเคราะห์ซ่อม vs เปลี่ยน |
-| `status` | enum | `active` \| `retired` |
+### 4.2 Priority Levels and SLA
 
-> **หมายเหตุ:** ระบบต้องทำงานได้แม้ `assets` ว่างเปล่า — การผูก ticket กับ asset เป็น optional
-
-### 4.3 `tickets`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `ticket_no` | varchar(20) UNIQUE | รูปแบบ `UPF-YYYYMM-NNNNN` |
-| `reporter_channel` | enum | `line` \| `web` \| `phone` \| `walkin` |
-| `reporter_ref` | varchar(100) | LINE userId (hashed) หรือรหัสบุคลากร |
-| `reporter_display_name` | text | nullable |
-| `raw_text` | text | ข้อความดิบที่ผู้แจ้งพิมพ์ |
-| `building_id` | uuid FK | nullable ตอนแรก |
-| `floor` | int | nullable |
-| `room` | varchar(50) | nullable |
-| `location_note` | text | เช่น "หน้าห้องน้ำชาย ชั้น 2" |
-| `gps_lat`, `gps_lng` | numeric | nullable |
-| `asset_id` | uuid FK | nullable |
-| `category` | enum | ตาม §5.1 |
-| `subcategory` | varchar(50) | |
-| `priority` | enum | `P1` \| `P2` \| `P3` \| `P4` |
-| `safety_hazard` | boolean | default false |
-| `status` | enum | ตาม §4.7 |
-| `assigned_team` | varchar(50) | nullable |
-| `assigned_to` | uuid FK → technicians | nullable |
-| `duplicate_of` | uuid FK → tickets | nullable |
-| `sla_respond_by` | timestamptz | |
-| `sla_resolve_by` | timestamptz | |
-| `on_hold_reason` | text | nullable |
-| `on_hold_total_minutes` | int | default 0 — หักออกจากการคิด SLA |
-| `created_at`, `updated_at` | timestamptz | |
-| `closed_at` | timestamptz | nullable |
-
-**Indexes:** `(status, priority, created_at)`, `(building_id, category, status)`, `(sla_resolve_by) WHERE status NOT IN ('closed','cancelled')`
-
-### 4.4 `ticket_media`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `ticket_id` | uuid FK | |
-| `kind` | enum | `before` \| `after` \| `reference` |
-| `storage_key` | text | path ใน object storage |
-| `mime_type` | varchar(50) | |
-| `bytes` | int | |
-| `redacted` | boolean | true = ผ่านการเบลอ PII แล้ว |
-| `quality_score` | numeric | 0–1 จาก image quality gate |
-| `uploaded_at` | timestamptz | |
-
-> **กฎ:** เก็บเฉพาะไฟล์ที่ `redacted = true` เท่านั้น ไฟล์ต้นฉบับถูกลบทันทีหลังประมวลผล
-
-### 4.5 `ai_classifications` — เก็บทุกครั้งที่ AI วิเคราะห์ (ห้ามเขียนทับ)
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `ticket_id` | uuid FK | |
-| `model` | varchar(50) | เช่น `claude-sonnet-4` |
-| `prompt_version` | varchar(20) | สำหรับ A/B และ rollback |
-| `output` | jsonb | ตาม schema §5.3 |
-| `confidence` | numeric | 0–1 |
-| `latency_ms` | int | |
-| `input_tokens`, `output_tokens` | int | สำหรับคิดต้นทุน |
-| `created_at` | timestamptz | |
-
-### 4.6 `ticket_events` — audit log (append-only)
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | bigserial PK | |
-| `ticket_id` | uuid FK | |
-| `actor_type` | enum | `ai` \| `user` \| `system` |
-| `actor_id` | varchar(100) | nullable |
-| `event_type` | enum | `created` \| `classified` \| `reclassified` \| `assigned` \| `on_site` \| `on_hold` \| `resumed` \| `completed` \| `closed` \| `reopened` \| `cancelled` \| `commented` \| `merged` |
-| `payload` | jsonb | ค่าก่อน/หลัง |
-| `reason` | text | **บังคับ** เมื่อ event_type = `reclassified` |
-| `created_at` | timestamptz | |
-
-### 4.7 Ticket State Machine
-
-```
-  new ──► triaging ──┬──► assigned ──► in_progress ──┬──► completed ──► closed
-                     │         ▲                     │                    │
-                     │         │                     ├──► on_hold ────────┘
-                     │         └─────────────────────┘   (รออะไหล่)
-                     │
-                     ├──► needs_info  (AI/จนท. ขอข้อมูลเพิ่ม)
-                     ├──► duplicate   (ผูกกับ ticket เดิม)
-                     ├──► rejected    (ไม่ใช่งานกองอาคารฯ)
-                     └──► cancelled   (ผู้แจ้งยกเลิก)
-```
-
-**กฎการเปลี่ยนสถานะ:**
-- `completed → closed` เกิดอัตโนมัติหลัง 72 ชม. หากผู้แจ้งไม่ทักท้วง
-- `closed → reopened` ได้ภายใน 14 วันเท่านั้น
-- เวลาที่อยู่ใน `on_hold` และ `needs_info` **ไม่นับ** ใน SLA
-
----
-
-## 5. AI Triage Pipeline
-
-### 5.1 Taxonomy (หมวดหมู่งาน)
-
-| `category` | ตัวอย่าง `subcategory` | ทีมรับผิดชอบ |
-|---|---|---|
-| `electrical` | `light_out`, `power_outage`, `breaker_trip`, `exposed_wire`, `socket_damaged` | งานสาธารณูปโภค–ไฟฟ้า |
-| `plumbing` | `leak`, `clog`, `no_water`, `toilet_broken`, `drain_blocked` | งานสาธารณูปโภค–ประปา |
-| `hvac` | `ac_not_cooling`, `ac_water_drip`, `ac_noise`, `ac_remote` | งานสาธารณูปโภค–ปรับอากาศ |
-| `structural` | `ceiling_collapse`, `wall_crack`, `door_window`, `tile_broken`, `roof_leak` | งานอาคาร |
-| `elevator` | `stuck`, `door_fault`, `noise` | ผู้รับจ้างภายนอก |
-| `landscape` | `tree_fallen`, `branch_risk`, `overgrown`, `irrigation` | งานสวนและภูมิทัศน์ |
-| `safety` | `street_light_out`, `cctv_fault`, `extinguisher_expired`, `fire_alarm` | งานความปลอดภัย |
-| `civil` | `road_pothole`, `manhole_missing`, `walkway_damaged` | งานอาคาร |
-| `furniture` | `desk_chair_broken`, `whiteboard`, `cabinet` | งานอาคาร |
-| `other` | — | คิวคัดกรองมนุษย์ |
-
-### 5.2 ระดับความเร่งด่วนและ SLA
-
-| Priority | นิยาม | ตัวอย่าง | ตอบรับภายใน | เสร็จภายใน |
+| Priority | Definition | Examples | Respond within | Resolve within |
 |---|---|---|---|---|
-| **P1** | อันตรายต่อชีวิตหรือทรัพย์สินร้ายแรง | สายไฟเปลือย ฝ้าถล่ม น้ำรั่วใส่แผงไฟ ลิฟต์ค้างมีคนติด ต้นไม้ล้มขวางถนน แก๊สรั่ว | 15 นาที | 4 ชม. |
-| **P2** | ใช้งานพื้นที่/อุปกรณ์ไม่ได้ กระทบการเรียนการสอน | แอร์ห้องเรียนเสีย ไฟดับทั้งชั้น น้ำไม่ไหล | 4 ชม. | 2 วันทำการ |
-| **P3** | ใช้งานได้แต่บกพร่อง | หลอดไฟเสีย 1 ดวง ก๊อกน้ำหยด | 1 วันทำการ | 5 วันทำการ |
-| **P4** | ความสวยงาม/ไม่เร่งด่วน | สีลอก ป้ายเอียง | 3 วันทำการ | 15 วันทำการ |
+| **P1** | Danger to life or serious property damage | Exposed live wiring, collapsing ceiling, water leaking onto an electrical panel, person trapped in a lift, fallen tree blocking a road, gas leak | 15 min | 4 hours |
+| **P2** | Space or equipment unusable; teaching affected | Classroom AC failure, whole-floor power outage, no water supply | 4 hours | 2 business days |
+| **P3** | Usable but degraded | A single blown lamp, dripping tap | 1 business day | 5 business days |
+| **P4** | Cosmetic / non-urgent | Peeling paint, crooked sign | 3 business days | 15 business days |
 
-> **กฎเหล็ก:** หาก `safety_hazard = true` → บังคับ `priority = P1` เสมอ ไม่ว่า AI จะให้ค่า confidence เท่าไร และต้องส่งแจ้งเตือนหัวหน้างานทันทีผ่าน LINE + SMS
+"Business days" are computed in `src/Domain/Sla.php` against a `holidays` table (Thai public holidays) and office hours 08:30–16:30. **P1 uses continuous 24-hour clock time and ignores holidays.**
 
-### 5.3 AI Output Schema (บังคับ — validate ด้วย JSON Schema ทุกครั้ง)
+> **Hard rule:** if `safety_hazard = 1`, `priority` is forced to `P1` regardless of the model's confidence, and the supervisor is notified immediately.
+
+### 4.3 AI Output Schema
+
+The model must return exactly this shape. Validated with `opis/json-schema` on every call.
 
 ```jsonc
 {
@@ -281,7 +166,7 @@
   "hazard_reason": null,
 
   "location": {
-    "building_code": "ICT",      // null ถ้าระบุไม่ได้
+    "building_code": "ICT",      // null if it cannot be determined
     "floor": 3,
     "room": "ICT1301",
     "confidence": 0.72
@@ -293,9 +178,9 @@
   },
 
   "summary_th": "แอร์ห้อง ICT1301 มีน้ำหยดจากคอยล์เย็นลงบนฝ้า เกิดคราบน้ำเป็นวงกว้าง",
-  "suspected_causes": ["ท่อน้ำทิ้งอุดตัน", "ถาดรองน้ำทิ้งรั่ว"],
+  "suspected_causes": ["Blocked condensate drain", "Cracked drain pan"],
   "suggested_materials": [
-    { "name": "ท่อ PVC 3/4 นิ้ว", "qty": 1, "unit": "เส้น" }
+    { "name": "PVC pipe 3/4 in", "qty": 1, "unit": "length" }
   ],
   "required_skills": ["hvac"],
   "estimated_duration_min": 90,
@@ -303,105 +188,348 @@
   "confidence": 0.81,
   "needs_human_triage": false,
   "evidence": [
-    "ภาพแสดงคราบน้ำสีน้ำตาลบนแผ่นฝ้าใต้ตำแหน่งคอยล์เย็น",
-    "ข้อความผู้แจ้งระบุว่า 'มีน้ำหยดตอนเปิดแอร์'"
+    "Image shows brown water staining on the ceiling tile directly below the evaporator coil",
+    "Reporter text states 'water drips when the AC is on'"
   ],
-  "clarifying_question_th": null   // มีค่าเมื่อ needs_human_triage หรือข้อมูลไม่พอ
+  "clarifying_question_th": null
 }
 ```
 
-**กฎการ validate:**
-- ถ้า output ไม่ตรง schema → retry สูงสุด 2 ครั้ง → ถ้ายังไม่ผ่าน ส่งเข้าคิวคัดกรองมนุษย์
-- `evidence` ต้องมีอย่างน้อย 1 รายการเสมอ — ห้ามให้โมเดลสรุปโดยไม่อ้างหลักฐาน
-- ห้ามโมเดลสร้าง `building_code` หรือ `asset_code` ที่ไม่มีในฐานข้อมูล → ตรวจสอบหลังรับ output ถ้าไม่พบให้ตั้งเป็น `null`
+**Validation rules** (implemented in `src/Ai/SchemaValidator.php`):
 
-### 5.4 เกณฑ์ความเชื่อมั่น (Confidence Routing)
+- Use Anthropic tool-use / structured output to constrain the shape — **but still validate server-side regardless**.
+- Schema mismatch → retry up to 2 times, feeding the validation error back to the model → still failing → human triage queue.
+- `evidence` must contain at least one item. The model is never allowed to conclude without citing what it saw.
+- `building_code` and `asset_code` must **exist in the database**. If not found, set to `null` and flag `needs_human_triage`.
+- User-facing text (`summary_th`, `clarifying_question_th`) is generated in Thai; internal reasoning fields may be English.
 
-| ช่วง confidence | การกระทำ |
+### 4.4 Confidence Routing
+
+| Confidence | Action |
 |---|---|
-| `≥ 0.75` | จ่ายงานอัตโนมัติ แจ้งผู้แจ้งทันที |
-| `0.50 – 0.74` | จำแนกไว้ก่อน แต่ติดธง `needs_review` ให้ผู้คัดกรองยืนยันภายใน 1 ชม. |
-| `< 0.50` | ไม่จ่ายงาน เข้าคิวคัดกรองมนุษย์ + ถามผู้แจ้งกลับด้วย `clarifying_question_th` |
-| ใด ๆ + `safety_hazard = true` | จ่ายเป็น P1 ทันที **และ** แจ้งมนุษย์ให้ยืนยันคู่ขนาน |
+| `≥ 0.75` | Auto-assign, notify reporter immediately |
+| `0.50 – 0.74` | Classify but flag `needs_review`; triage officer must confirm within 1 hour |
+| `< 0.50` | Do not assign. Human triage queue + ask the reporter `clarifying_question_th` |
+| any + `safety_hazard = true` | Assign as P1 immediately **and** request parallel human confirmation |
 
-### 5.5 การตรวจจับงานซ้ำ (Duplicate Detection)
+All thresholds are read from `.env` — never hard-coded.
 
-ทำงาน 2 ชั้น:
+### 4.5 Duplicate Detection (no vector database)
 
-1. **ชั้นกฎ (เร็ว):** ticket ที่ยังเปิดอยู่ ใน `building_id` + `floor` + `category` เดียวกัน ภายใน 14 วัน → เป็น candidate
-2. **ชั้นความหมาย:** คำนวณ embedding ของ `summary_th` เทียบ cosine similarity กับ candidates
-   - `≥ 0.88` → ผูกเป็น duplicate อัตโนมัติ แจ้งผู้แจ้งว่า "เรื่องนี้มีคนแจ้งแล้ว หมายเลข UPF-…  สถานะปัจจุบันคือ…"
-   - `0.75 – 0.87` → ถามผู้แจ้งยืนยันว่าใช่เรื่องเดียวกันหรือไม่
-   - `< 0.75` → สร้าง ticket ใหม่
+Three layers on SQL Server alone, cheapest first.
 
-> **สำคัญ:** การผูก duplicate ต้อง **ย้อนกลับได้** เสมอ (`POST /tickets/:id/unmerge`) เพราะการรวมงานผิดทำให้เรื่องจริงหายไป
+**Layer 1 — SQL filter**
 
-### 5.6 การจ่ายงาน (Routing) — ทำด้วยโค้ด ไม่ใช่ LLM
+```sql
+SELECT TOP (20) t.id, t.ticket_no, t.status, c.text_signature, c.output
+FROM tickets t
+JOIN ai_classifications c ON c.ticket_id = t.id
+WHERE t.building_id = @building_id
+  AND t.category    = @category
+  AND t.status NOT IN ('closed','cancelled','duplicate','rejected')
+  AND t.created_at >= DATEADD(day, -14, SYSUTCDATETIME())
+  AND (@floor IS NULL OR t.floor = @floor)
+ORDER BY t.created_at DESC;
+```
 
-ลำดับการเลือกช่าง:
-1. กรองช่างที่มี skill ตรงกับ `required_skills` และสถานะ `available`
-2. กรองช่างที่รับผิดชอบ `zone` ของอาคารนั้น
-3. เรียงตามจำนวนงานค้าง (น้อยไปมาก)
-4. เรียงตามงานที่เคยซ่อม `asset_id` เดียวกันมาก่อน (ให้ความสำคัญกับความต่อเนื่อง)
-5. ถ้าไม่มีช่างว่าง → เข้าคิวรอ + แจ้งหัวหน้างานเมื่อ P1/P2 รอเกิน 30 นาที
+**Layer 2 — Character-trigram similarity, computed in PHP**
+
+Thai has no spaces between words, so word tokenisation is unreliable. Character trigrams with the Dice coefficient work well without any segmentation:
+
+```
+similarity = 2 × |A ∩ B| / (|A| + |B|)   where A, B are trigram sets of summary_th
+```
+
+Trigram sets are precomputed and stored in `ai_classifications.text_signature` so they are never recomputed.
+
+**Layer 3 — LLM adjudication for borderline cases only**
+
+| Dice score | Action |
+|---|---|
+| `≥ 0.75` | Auto-link as duplicate; tell the reporter: "This was already reported as UPF-…, current status is …" |
+| `0.45 – 0.74` | Send up to 5 candidates to Haiku, which returns `{ "duplicate_of": "UPF-…" \| null, "reason": "…" }`, then ask the reporter to confirm |
+| `< 0.45` | Create a new ticket |
+
+> **Critical:** duplicate linking must always be **reversible** (`POST /tickets/{id}/unmerge`). An incorrect merge makes a real fault disappear from the system.
+
+### 4.6 Job Routing (pure code, not LLM)
+
+Selection order in `src/Domain/Routing.php`:
+
+1. Filter technicians whose skills match `required_skills` and whose status is `available`
+2. Filter to technicians covering that building's `zone`
+3. Sort by open job count, ascending
+4. Sort by number of past repairs on the same `asset_id`, descending (continuity matters)
+5. If nobody is available, queue and alert the supervisor once a P1/P2 has waited 30 minutes
+
+---
+
+## 5. Data Model (Microsoft SQL Server)
+
+### 5.0 Conventions
+
+| Topic | Rule |
+|---|---|
+| Text | Always `NVARCHAR` for anything that may contain Thai. **Never `VARCHAR`.** |
+| Collation | `Thai_CI_AI` recommended for searchable/sortable Thai columns |
+| Primary keys | `UNIQUEIDENTIFIER DEFAULT NEWSEQUENTIALID()` (less index fragmentation than `NEWID()`) |
+| Timestamps | `DATETIME2(0)` stored in **UTC** via `SYSUTCDATETIME()`. Convert to UTC+7 in the presentation layer only. |
+| Booleans | `BIT` |
+| Enums | SQL Server has none — use `NVARCHAR(n)` + `CHECK`, with the same values declared as PHP constants |
+| JSON | `NVARCHAR(MAX)` + `CHECK (ISJSON(col) = 1)` |
+| Money | `DECIMAL(12,2)`. Never `FLOAT`. |
+| Coordinates | `DECIMAL(10,7)` |
+
+### 5.1 `buildings`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UNIQUEIDENTIFIER` PK | `DEFAULT NEWSEQUENTIALID()` |
+| `code` | `NVARCHAR(20)` UNIQUE NOT NULL | e.g. `ICT`, `PKY`, `CE` |
+| `name_th` | `NVARCHAR(200)` NOT NULL | |
+| `zone` | `NVARCHAR(50)` | Used for distance-based routing |
+| `lat`, `lng` | `DECIMAL(10,7)` NULL | Matched against reporter GPS |
+| `floors` | `INT` NULL | |
+| `gross_area_sqm` | `DECIMAL(12,2)` NULL | For faults-per-area statistics |
+| `is_active` | `BIT` NOT NULL DEFAULT 1 | |
+
+### 5.2 `assets`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UNIQUEIDENTIFIER` PK | |
+| `asset_code` | `NVARCHAR(50)` UNIQUE NOT NULL | e.g. `AC-ICT-1301-02` |
+| `building_id` | `UNIQUEIDENTIFIER` FK → `buildings` | |
+| `floor` | `INT` NULL | |
+| `room` | `NVARCHAR(50)` NULL | |
+| `category` | `NVARCHAR(30)` + CHECK | Per §4.1 |
+| `brand`, `model` | `NVARCHAR(100)` NULL | |
+| `installed_at` | `DATE` NULL | For age calculation |
+| `replacement_cost` | `DECIMAL(12,2)` NULL | For repair-vs-replace analysis |
+| `status` | `NVARCHAR(20)` CHECK IN (`active`,`retired`) | DEFAULT `active` |
+
+> The system must work correctly when `assets` is empty. Linking a ticket to an asset is always optional.
+
+### 5.3 `tickets`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UNIQUEIDENTIFIER` PK | |
+| `ticket_no` | `NVARCHAR(20)` UNIQUE NOT NULL | Format `UPF-YYYYMM-NNNNN`, see §5.9 |
+| `reporter_channel` | `NVARCHAR(20)` CHECK IN (`line`,`web`,`phone`,`walkin`) | |
+| `reporter_ref` | `NVARCHAR(100)` NOT NULL | Hashed LINE userId or staff ID |
+| `reporter_display_name` | `NVARCHAR(200)` NULL | |
+| `raw_text` | `NVARCHAR(MAX)` NULL | Verbatim reporter text |
+| `building_id` | `UNIQUEIDENTIFIER` FK NULL | |
+| `floor` | `INT` NULL | |
+| `room` | `NVARCHAR(50)` NULL | |
+| `location_note` | `NVARCHAR(500)` NULL | e.g. "outside the men's toilet, 2nd floor" |
+| `gps_lat`, `gps_lng` | `DECIMAL(10,7)` NULL | |
+| `asset_id` | `UNIQUEIDENTIFIER` FK NULL | |
+| `category` | `NVARCHAR(30)` CHECK | Per §4.1 |
+| `subcategory` | `NVARCHAR(50)` NULL | |
+| `priority` | `CHAR(2)` CHECK IN (`P1`,`P2`,`P3`,`P4`) | |
+| `safety_hazard` | `BIT` NOT NULL DEFAULT 0 | |
+| `status` | `NVARCHAR(20)` CHECK | Per §5.8 |
+| `assigned_team` | `NVARCHAR(50)` NULL | |
+| `assigned_to` | `UNIQUEIDENTIFIER` FK → `technicians` NULL | |
+| `duplicate_of` | `UNIQUEIDENTIFIER` FK → `tickets` NULL | |
+| `sla_respond_by` | `DATETIME2(0)` NULL | |
+| `sla_resolve_by` | `DATETIME2(0)` NULL | |
+| `on_hold_reason` | `NVARCHAR(500)` NULL | |
+| `on_hold_total_minutes` | `INT` NOT NULL DEFAULT 0 | Deducted from SLA elapsed time |
+| `created_at` | `DATETIME2(0)` NOT NULL DEFAULT `SYSUTCDATETIME()` | |
+| `updated_at` | `DATETIME2(0)` NOT NULL | Maintained by the application layer |
+| `closed_at` | `DATETIME2(0)` NULL | |
+
+**Indexes**
+
+```sql
+CREATE INDEX IX_tickets_queue    ON tickets(status, priority, created_at);
+CREATE INDEX IX_tickets_building ON tickets(building_id, category, status);
+CREATE INDEX IX_tickets_assignee ON tickets(assigned_to, status);
+CREATE INDEX IX_tickets_sla_open ON tickets(sla_resolve_by)
+    WHERE status NOT IN ('closed', 'cancelled');   -- filtered index
+```
+
+### 5.4 `ticket_media`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UNIQUEIDENTIFIER` PK | |
+| `ticket_id` | `UNIQUEIDENTIFIER` FK NOT NULL | |
+| `kind` | `NVARCHAR(20)` CHECK IN (`before`,`after`,`reference`) | |
+| `storage_path` | `NVARCHAR(400)` NOT NULL | Relative to `storage/media/` |
+| `mime_type` | `NVARCHAR(50)` NOT NULL | |
+| `bytes` | `INT` NOT NULL | |
+| `redacted` | `BIT` NOT NULL DEFAULT 0 | 1 = PII already blurred |
+| `quality_score` | `DECIMAL(4,3)` NULL | 0–1 from the image quality gate |
+| `uploaded_at` | `DATETIME2(0)` NOT NULL | |
+
+> **Rule:** only files with `redacted = 1` are ever served. Originals live in `storage/media/_raw/` and are deleted by the scheduler within 24 hours.
+
+### 5.5 `ai_classifications` (append-only — never overwrite)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UNIQUEIDENTIFIER` PK | |
+| `ticket_id` | `UNIQUEIDENTIFIER` FK NOT NULL | |
+| `model` | `NVARCHAR(60)` NOT NULL | Value of `AI_MODEL_PRIMARY` |
+| `prompt_version` | `NVARCHAR(20)` NOT NULL | For A/B testing and rollback |
+| `output` | `NVARCHAR(MAX)` CHECK (`ISJSON(output)=1`) | Per §4.3 |
+| `confidence` | `DECIMAL(4,3)` NOT NULL | |
+| `text_signature` | `NVARCHAR(MAX)` NULL | Trigram set of `summary_th` (JSON array) for §4.5 |
+| `latency_ms` | `INT` NOT NULL | |
+| `input_tokens`, `output_tokens` | `INT` NOT NULL | For cost reporting, §9.4 |
+| `created_at` | `DATETIME2(0)` NOT NULL DEFAULT `SYSUTCDATETIME()` | |
+
+### 5.6 `ticket_events` (append-only audit log)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT IDENTITY(1,1)` PK | |
+| `ticket_id` | `UNIQUEIDENTIFIER` FK NOT NULL | |
+| `actor_type` | `NVARCHAR(10)` CHECK IN (`ai`,`user`,`system`) | |
+| `actor_id` | `NVARCHAR(100)` NULL | |
+| `event_type` | `NVARCHAR(20)` CHECK | `created`, `classified`, `reclassified`, `assigned`, `on_site`, `on_hold`, `resumed`, `completed`, `closed`, `reopened`, `cancelled`, `commented`, `merged`, `unmerged` |
+| `payload` | `NVARCHAR(MAX)` CHECK (`ISJSON`) | Before/after values |
+| `reason` | `NVARCHAR(500)` NULL | **Required** when `event_type = 'reclassified'` |
+| `created_at` | `DATETIME2(0)` NOT NULL DEFAULT `SYSUTCDATETIME()` | |
+
+> Grant `DENY UPDATE, DELETE ON ticket_events` to the application database user.
+
+### 5.7 `job_queue` (replaces Redis/BullMQ)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `BIGINT IDENTITY(1,1)` PK | |
+| `job_type` | `NVARCHAR(50)` NOT NULL | `redact_media`, `classify_ticket`, `find_duplicate`, `notify_line`, `escalate_sla` |
+| `payload` | `NVARCHAR(MAX)` CHECK (`ISJSON`) | |
+| `status` | `NVARCHAR(20)` CHECK IN (`pending`,`running`,`done`,`failed`) | DEFAULT `pending` |
+| `attempts` | `INT` NOT NULL DEFAULT 0 | |
+| `max_attempts` | `INT` NOT NULL DEFAULT 3 | |
+| `run_after` | `DATETIME2(0)` NOT NULL DEFAULT `SYSUTCDATETIME()` | Enables exponential backoff |
+| `locked_by` | `NVARCHAR(100)` NULL | Worker process name |
+| `locked_at` | `DATETIME2(0)` NULL | |
+| `last_error` | `NVARCHAR(MAX)` NULL | |
+| `created_at`, `updated_at` | `DATETIME2(0)` NOT NULL | |
+
+**Safe multi-worker claim** — never `SELECT` then `UPDATE`:
+
+```sql
+UPDATE TOP (1) job_queue WITH (ROWLOCK, READPAST, UPDLOCK)
+SET status = 'running',
+    locked_by = @workerId,
+    locked_at = SYSUTCDATETIME(),
+    attempts = attempts + 1,
+    updated_at = SYSUTCDATETIME()
+OUTPUT inserted.id, inserted.job_type, inserted.payload, inserted.attempts
+WHERE status = 'pending'
+  AND run_after <= SYSUTCDATETIME();
+```
+
+Jobs stuck in `running` with `locked_at` older than 10 minutes are reset to `pending` by `bin/scheduler.php` (worker crash recovery).
+
+### 5.8 Ticket State Machine
+
+```
+  new ──► triaging ──┬──► assigned ──► in_progress ──┬──► completed ──► closed
+                     │         ▲                     │                    │
+                     │         │                     ├──► on_hold ────────┘
+                     │         └─────────────────────┘   (awaiting parts)
+                     │
+                     ├──► needs_info  (AI or officer requests more detail)
+                     ├──► duplicate   (linked to an existing ticket)
+                     ├──► rejected    (not this division's responsibility)
+                     └──► cancelled   (withdrawn by reporter)
+```
+
+Enforced in `src/Domain/TicketState.php` — controllers must never set `status` directly.
+
+- `completed → closed` happens automatically after 72 hours if the reporter raises no objection
+- `closed → reopened` allowed within 14 days only
+- Time spent in `on_hold` and `needs_info` does **not** count toward SLA
+- Any transition not on the diagram returns `409 INVALID_STATE_TRANSITION`
+
+### 5.9 Ticket Number Generation
+
+Format `UPF-YYYYMM-NNNNN`, where `NNNNN` restarts monthly. Uses a counter table with `UPDLOCK` to prevent collisions:
+
+```sql
+BEGIN TRAN;
+  UPDATE ticket_counters WITH (UPDLOCK, HOLDLOCK)
+  SET last_no = last_no + 1
+  OUTPUT inserted.last_no
+  WHERE period = @period;   -- '202608'
+  -- if no row exists, INSERT starting at 1
+COMMIT;
+```
+
+> Never use `MAX(ticket_no) + 1` — it races under concurrent submissions.
 
 ---
 
 ## 6. API Specification
 
-**Base URL:** `/api/v1`
-**Auth:** Bearer JWT (ยกเว้น `/webhooks/line` ที่ใช้ LINE signature validation)
+**Base URL:** `/api/v1` (all requests routed through the `public/index.php` front controller)
+**Auth:** `Authorization: Bearer <JWT>`, except `/webhooks/line` which uses LINE signature validation
+**Content-Type:** `application/json`, except file-upload endpoints
 
-### 6.1 สร้าง ticket
+### 6.1 Create a ticket
 
 ```
 POST /api/v1/tickets
 Content-Type: multipart/form-data
-Idempotency-Key: <uuid>   (บังคับ)
+Idempotency-Key: <uuid>   (required)
 ```
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `text` | string | ⚠️ | ต้องมี `text` หรือ `images` อย่างน้อยหนึ่งอย่าง |
-| `images[]` | file | ⚠️ | สูงสุด 5 ไฟล์ ไฟล์ละ ≤ 10 MB (jpeg/png/heic/webp) |
-| `building_code` | string | ✗ | ถ้ารู้ |
+| `text` | string | ⚠️ | At least one of `text` or `images` must be present |
+| `images[]` | file | ⚠️ | Max 5 files, ≤ 10 MB each (jpeg/png/heic/webp) |
+| `building_code` | string | ✗ | If known |
 | `floor` | int | ✗ | |
 | `room` | string | ✗ | |
 | `gps_lat`, `gps_lng` | number | ✗ | |
 | `channel` | enum | ✓ | `line` \| `web` |
 
-**Response `201 Created`** (คืนทันที ไม่รอ AI):
+> Set `upload_max_filesize = 12M`, `post_max_size = 64M`, `max_file_uploads = 10` in `php.ini`.
+> Detect file type with `finfo_file()`. **Never trust** the client-supplied `$_FILES['type']`.
+
+**Response `201 Created`** — returned immediately; AI work is enqueued to `job_queue`:
 
 ```json
 {
   "ticket_no": "UPF-202608-00147",
-  "id": "3f9a…",
+  "id": "3F9A2C1E-…",
   "status": "triaging",
   "message_th": "รับเรื่องแล้ว กำลังวิเคราะห์ ระบบจะแจ้งผลภายใน 1 นาที",
-  "poll_url": "/api/v1/tickets/3f9a…"
+  "poll_url": "/api/v1/tickets/3F9A2C1E-…"
 }
 ```
 
-### 6.2 Endpoints ทั้งหมด
+### 6.2 Endpoints
 
-| Method | Path | Role | คำอธิบาย |
+| Method | Path | Role | Description |
 |---|---|---|---|
-| `POST` | `/tickets` | any | สร้างเรื่องแจ้งซ่อม |
-| `GET` | `/tickets/:id` | reporter/staff | ดูรายละเอียด + timeline |
-| `GET` | `/tickets` | staff | ค้นหา: `status`, `priority`, `building`, `category`, `assigned_to`, `overdue=true`, `page`, `limit` |
-| `PATCH` | `/tickets/:id` | triage/manager | แก้ไขการจำแนก — **ต้องส่ง `reason`** |
-| `POST` | `/tickets/:id/assign` | triage/manager | จ่ายงานให้ช่าง |
-| `POST` | `/tickets/:id/events` | staff | บันทึกเหตุการณ์ (`on_site`, `on_hold`, `completed`, `commented`) |
-| `POST` | `/tickets/:id/merge` | triage | ผูกเป็นงานซ้ำ |
-| `POST` | `/tickets/:id/unmerge` | triage | ยกเลิกการผูก |
-| `POST` | `/tickets/:id/reopen` | reporter/staff | เปิดใหม่ (ภายใน 14 วัน) |
-| `GET` | `/assets/:id/history` | staff | ประวัติซ่อมของอุปกรณ์ |
-| `GET` | `/analytics/repeat-repairs` | manager | รายการ "ซ่อมวน" + ต้นทุนสะสม |
-| `GET` | `/analytics/sla` | manager | สถิติ SLA รายทีม/รายอาคาร |
+| `POST` | `/tickets` | any | Create a maintenance request |
+| `GET` | `/tickets/{id}` | reporter/staff | Detail + event timeline |
+| `GET` | `/tickets` | staff | Search: `status`, `priority`, `building`, `category`, `assigned_to`, `overdue=true`, `page`, `limit` |
+| `PATCH` | `/tickets/{id}` | triage/manager | Amend classification — **`reason` is mandatory** |
+| `POST` | `/tickets/{id}/assign` | triage/manager | Assign to a technician |
+| `POST` | `/tickets/{id}/events` | staff | Record an event (`on_site`, `on_hold`, `completed`, `commented`) |
+| `POST` | `/tickets/{id}/media` | staff | Upload an `after` photo |
+| `POST` | `/tickets/{id}/merge` | triage | Link as duplicate |
+| `POST` | `/tickets/{id}/unmerge` | triage | Undo a duplicate link |
+| `POST` | `/tickets/{id}/reopen` | reporter/staff | Reopen (within 14 days) |
+| `GET` | `/media/{mediaId}` | per ticket ACL | Stream an image through PHP (§10.2) |
+| `GET` | `/assets/{id}/history` | staff | Repair history for an asset |
+| `GET` | `/analytics/repeat-repairs` | manager | Repeat-repair loops + accumulated cost |
+| `GET` | `/analytics/sla` | manager | SLA statistics by team and building |
 | `POST` | `/webhooks/line` | — | LINE Messaging API webhook |
-| `GET` | `/healthz` | — | health check |
+| `GET` | `/healthz` | — | Health check (DB reachability + queue depth) |
 
-### 6.3 รูปแบบ Error มาตรฐาน
+### 6.3 Standard Error Envelope
 
 ```json
 {
@@ -414,408 +542,610 @@ Idempotency-Key: <uuid>   (บังคับ)
 }
 ```
 
-| HTTP | `code` | เมื่อไหร่ |
+| HTTP | `code` | When |
 |---|---|---|
-| 400 | `INVALID_PAYLOAD` | payload ผิดรูปแบบ |
-| 401 | `UNAUTHORIZED` | ไม่มี/ token หมดอายุ |
-| 403 | `FORBIDDEN` | บทบาทไม่มีสิทธิ์ |
+| 400 | `INVALID_PAYLOAD` | Malformed payload |
+| 401 | `UNAUTHORIZED` | Missing or expired token |
+| 403 | `FORBIDDEN` | Role lacks permission |
 | 404 | `TICKET_NOT_FOUND` | |
-| 409 | `DUPLICATE_REQUEST` | `Idempotency-Key` ซ้ำ |
-| 409 | `INVALID_STATE_TRANSITION` | เปลี่ยนสถานะไม่ถูกตาม state machine |
-| 413 | `FILE_TOO_LARGE` | ไฟล์ > 10 MB |
-| 415 | `UNSUPPORTED_MEDIA_TYPE` | ไม่ใช่ภาพที่รองรับ |
-| 422 | `TICKET_EMPTY_INPUT` | ไม่มีทั้งข้อความและรูป |
-| 429 | `RATE_LIMITED` | เกินโควตา (§10.3) |
-| 503 | `AI_UNAVAILABLE` | AI ล่ม — **ticket ยังถูกสร้าง** สถานะ `triaging` |
+| 409 | `DUPLICATE_REQUEST` | `Idempotency-Key` replay |
+| 409 | `INVALID_STATE_TRANSITION` | Illegal state change |
+| 413 | `FILE_TOO_LARGE` | File > 10 MB |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | Unsupported image format |
+| 422 | `TICKET_EMPTY_INPUT` | Neither text nor images |
+| 429 | `RATE_LIMITED` | Quota exceeded (§9.3) |
+| 503 | `AI_UNAVAILABLE` | AI down — **the ticket is still created** with status `triaging` |
+
+> Set `display_errors = Off` in production. Never leak PHP warnings or stack traces. Use `set_exception_handler()` to convert everything into the envelope above.
 
 ---
 
 ## 7. LINE OA Flow
 
 ```
-ผู้ใช้ส่งรูป + ข้อความ
+Reporter sends photo + text
         │
         ▼
-[ตอบทันที] "รับเรื่องแล้ว UPF-202608-00147 กำลังวิเคราะห์…"
+[immediate reply] "Received — UPF-202608-00147. Analysing…"
         │
-        ▼ (< 60 วินาที)
-[ตอบผลวิเคราะห์]
-  "🔧 งานปรับอากาศ – แอร์มีน้ำหยด
-   📍 อาคาร ICT ชั้น 3 ห้อง ICT1301
-   ⚡ ความเร่งด่วน: ปานกลาง (P2)
-   👷 มอบหมาย: ทีมปรับอากาศ
-   ⏱️ คาดว่าแล้วเสร็จภายใน 20 ส.ค. 2569
-   [ปุ่ม: ดูสถานะ] [ปุ่ม: ไม่ถูกต้อง แก้ไข]"
+        ▼ (< 60 s — worker finishes, then pushes)
+[analysis reply]
+  "🔧 HVAC — AC water leak
+   📍 ICT Building, floor 3, room ICT1301
+   ⚡ Priority: Medium (P2)
+   👷 Assigned: HVAC team
+   ⏱️ Expected completion: 20 Aug 2026
+   [Button: View status] [Button: This is wrong]"
         │
-        ▼ อัปเดตอัตโนมัติเมื่อเปลี่ยนสถานะสำคัญ
+        ▼ automatic push on each significant status change
    assigned → in_progress → completed
         │
         ▼
-[ขอความเห็น] "งานเสร็จแล้ว พอใจไหม? 👍 / 👎"
+[feedback] "The job is complete. Are you satisfied? 👍 / 👎"
 ```
 
-**กรณีข้อมูลไม่พอ** ระบบถามกลับด้วย quick reply เช่น
-`"ไม่แน่ใจว่าเป็นอาคารไหน กรุณาเลือก: [ICT] [PKY] [CE] [อื่น ๆ] [ส่งตำแหน่ง GPS]"`
+**Technical requirements**
 
-**กรณีตรวจพบงานซ้ำ**
-`"เรื่องนี้ตรงกับ UPF-202608-00131 ที่แจ้งเมื่อ 2 วันก่อน สถานะ: ช่างกำลังดำเนินการ — [เรื่องเดียวกัน] [คนละเรื่อง]"`
+- The webhook must **return `200` within 1 second** — the controller only writes to `job_queue` and returns. Never call the AI inline here.
+- Verify the signature: `base64_encode(hash_hmac('sha256', $rawBody, $channelSecret, true))` compared against the `x-line-signature` header using `hash_equals()`.
+- Fetch images via `GET /v2/bot/message/{messageId}/content`.
+- **The technician UI is a LIFF page** — ordinary HTML/CSS/JS opened inside the LINE in-app browser. No separate app, and `userId` is supplied by the LIFF SDK.
 
----
+**When information is missing** — quick reply:
+`"Which building is this? [ICT] [PKY] [CE] [Other] [Send GPS]"`
 
-## 8. Edge Cases & Error Handling
-
-### 8.1 อินพุตจากผู้แจ้ง
-
-| กรณี | พฤติกรรมที่ต้องการ |
-|---|---|
-| มีรูป ไม่มีข้อความ | ✅ ดำเนินการปกติ วิเคราะห์จากรูปอย่างเดียว |
-| มีข้อความ ไม่มีรูป | ✅ ดำเนินการ แต่ลด confidence ลง 0.15 และขอรูปเพิ่ม |
-| ไม่มีทั้งสองอย่าง | ❌ `422 TICKET_EMPTY_INPUT` |
-| ข้อความยาวเกิน 5,000 ตัวอักษร | ตัดที่ 5,000 + บันทึก flag `text_truncated` |
-| รูปเบลอ/มืดเกินไป (`quality_score < 0.3`) | ขอถ่ายใหม่ พร้อมคำแนะนำ "กรุณาถ่ายให้เห็นจุดชำรุดชัดเจนและเปิดไฟ" |
-| รูปไม่เกี่ยวข้อง (เซลฟี่ สกรีนช็อต มีม) | ตอบสุภาพว่าไม่พบจุดชำรุดในภาพ ขอภาพใหม่ **ไม่สร้าง ticket** |
-| รูปมีใบหน้าคน/ป้ายทะเบียนรถ | เบลออัตโนมัติก่อนบันทึก (§9.1) |
-| ข้อความสะกดผิด/ใช้ภาษาถิ่น/คำแสลงช่าง | LLM ต้องรับมือได้ — ครอบคลุมใน test set |
-| ข้อความเป็นภาษาอังกฤษ | ✅ รองรับ ตอบกลับเป็นภาษาเดียวกับที่ผู้แจ้งใช้ |
-| แจ้งเรื่องที่ไม่ใช่งานกองอาคารฯ (เน็ตล่ม คอมพิวเตอร์เสีย) | สถานะ `rejected` + แนะนำช่องทางที่ถูกต้อง (ศูนย์ ICT) |
-| ข้อความหยาบคาย/ร้องเรียนบุคคล | สร้าง ticket ตามปกติแต่ไม่ส่งข้อความดิบเข้า LLM ในส่วนที่เป็นการกล่าวหาบุคคล + แจ้งหัวหน้างาน |
-| ส่งซ้ำ ๆ รัว ๆ (spam) | rate limit §10.3 → `429` |
-
-### 8.2 ตำแหน่งและอุปกรณ์
-
-| กรณี | พฤติกรรม |
-|---|---|
-| ระบุอาคารไม่ได้ แต่มี GPS | หาอาคารที่ใกล้ที่สุดในรัศมี 80 ม. → เสนอให้ยืนยัน |
-| GPS อยู่นอกพื้นที่มหาวิทยาลัย | เพิกเฉย GPS + ถามอาคารจากผู้แจ้ง |
-| ชื่ออาคารที่ AI ตอบไม่มีในฐานข้อมูล | ตั้ง `building_id = null` + เข้าคิวคัดกรอง (ห้ามสร้างอาคารใหม่อัตโนมัติ) |
-| ห้องที่ระบุไม่มีในอาคารนั้น | เก็บไว้ใน `location_note` แทน ไม่ใส่ `room` |
-| `assets` ยังไม่มีข้อมูลเลย | ระบบทำงานได้ปกติ — `asset_id = null` |
-
-### 8.3 ระบบและโครงสร้างพื้นฐาน
-
-| กรณี | พฤติกรรม |
-|---|---|
-| AI API timeout / ล่ม | ticket ถูกสร้างแล้วเสมอ → retry 3 ครั้ง (exponential backoff 2s/8s/30s) → ถ้ายังล้มเหลว เข้าคิวคัดกรองมนุษย์ + แจ้งผู้แจ้งว่า "อยู่ระหว่างตรวจสอบโดยเจ้าหน้าที่" |
-| AI ตอบไม่ตรง JSON schema | retry 2 ครั้งพร้อม error feedback → ล้มเหลว → คิวมนุษย์ |
-| LINE webhook ส่งซ้ำ (LINE retry) | ใช้ `webhookEventId` เป็น idempotency key |
-| อัปโหลดรูปสำเร็จบางไฟล์ | ticket ยังสร้างได้ + บันทึก `partial_upload` + แจ้งผู้แจ้งว่ารูปที่ N ล้มเหลว |
-| Object storage เต็ม/ล่ม | ticket สร้างได้จากข้อความ + คิวอัปโหลดใหม่ภายหลัง |
-| ฐานข้อมูลล่ม | `503` + ข้อความภาษาไทย ห้ามคืน stack trace |
-| ช่างปิดงานโดยไม่มีรูป after | ❌ ปฏิเสธสำหรับ P1/P2 (`INVALID_STATE_TRANSITION`) / ⚠️ เตือนแต่อนุญาตสำหรับ P3/P4 |
-| งานรออะไหล่ | `on_hold` + ระบุ `on_hold_reason` → นาฬิกา SLA หยุดเดิน |
-| P1 เกิดนอกเวลาราชการ | แจ้งเวรรักษาการณ์ + หัวหน้างานทันทีทุกช่องทาง |
-| ticket ค้างเกิน SLA | escalate อัตโนมัติไปหัวหน้างานที่ 100% ของเวลา SLA และผู้อำนวยการที่ 150% |
-| ผู้แจ้งลบข้อความใน LINE | ข้อมูลใน ticket ยังอยู่ (เป็นบันทึกราชการ) |
+**When a duplicate is detected:**
+`"This matches UPF-202608-00131, reported 2 days ago. Status: technician on site. — [Same issue] [Different issue]"`
 
 ---
 
-## 9. ความปลอดภัย ธรรมาภิบาล และจริยธรรม AI
+## 8. Tech Stack
 
-### 9.1 PDPA และข้อมูลส่วนบุคคล
+### 8.1 Overview
 
-- **เบลออัตโนมัติ** ใบหน้าบุคคลและป้ายทะเบียนรถในทุกภาพก่อนบันทึกลง storage ภาพต้นฉบับถูกลบภายใน 24 ชม.
-- LINE `userId` **เก็บเป็น hash** (SHA-256 + salt) ไม่เก็บดิบ
-- ไม่ส่งชื่อ–สกุล เบอร์โทร อีเมล ของผู้แจ้งเข้า LLM — ส่งเฉพาะข้อความอาการและภาพที่ผ่านการเบลอแล้ว
-- นโยบายเก็บรักษา: ภาพเก็บ 2 ปี, ข้อมูล ticket เก็บ 5 ปี (ตามระเบียบงานสารบรรณ), หลังจากนั้นทำ anonymize
-- ผู้แจ้งขอลบข้อมูลส่วนบุคคลของตนได้ โดย ticket ยังคงอยู่ในรูปแบบไม่ระบุตัวตน
-- ต้องมีหน้าแจ้งนโยบายความเป็นส่วนตัวและขอความยินยอมตอนผูก LINE OA ครั้งแรก
-
-### 9.2 ความปลอดภัยของระบบ
-
-- RBAC 5 บทบาท: `reporter`, `technician`, `triage`, `manager`, `admin`
-  - `reporter` เห็นเฉพาะ ticket ของตนเอง
-  - `technician` เห็นเฉพาะงานที่ได้รับมอบหมาย + ประวัติ asset
-  - `triage`/`manager` เห็นทั้งหมด แต่ export ข้อมูลต้องบันทึก audit
-- JWT อายุสั้น (15 นาที) + refresh token
-- Rate limit ทุก endpoint, signature validation สำหรับ LINE webhook
-- เข้ารหัสข้อมูลระหว่างส่ง (TLS 1.2+) และขณะพัก (at-rest encryption)
-- Object storage ไม่เปิด public — เข้าถึงผ่าน pre-signed URL อายุ 15 นาที
-- `ticket_events` เป็น append-only ห้ามลบหรือแก้ไข
-
-### 9.3 ความโปร่งใสและการป้องกัน Hallucination
-
-| มาตรการ | รายละเอียด |
-|---|---|
-| **บังคับอ้างหลักฐาน** | ทุก classification ต้องมี `evidence` อย่างน้อย 1 รายการ ที่อ้างถึงสิ่งที่เห็นในภาพหรือข้อความจริง |
-| **ไม่ให้ LLM คิดเลข** | SLA, การจ่ายงาน, ต้นทุนสะสม, สถิติ คำนวณด้วยโค้ดทั้งหมด |
-| **ไม่ให้ LLM สร้างรหัส** | `building_code` / `asset_code` ต้องตรวจสอบกับฐานข้อมูล ไม่พบ = null |
-| **แสดง confidence ต่อผู้ใช้** | หน้าจอเจ้าหน้าที่แสดงระดับความมั่นใจและปุ่ม "AI วิเคราะห์ผิด" ทุกครั้ง |
-| **ยอมรับว่าไม่รู้** | เมื่อ confidence < 0.5 ระบบต้องพูดว่าไม่แน่ใจและถามกลับ ห้ามเดา |
-| **มนุษย์ตัดสินใจสุดท้าย** | AI จัดลำดับและเสนอ แต่หัวหน้าช่างอนุมัติ/ปรับได้เสมอ พร้อมบันทึกเหตุผล |
-
-### 9.4 ข้อห้ามเชิงจริยธรรม (บังคับใช้ในโค้ด)
-
-- 🚫 **ห้ามใช้ข้อมูลในระบบประเมินผลปฏิบัติงานช่างเป็นรายบุคคล** — API วิเคราะห์ต้อง aggregate ระดับทีมเท่านั้น ไม่มี endpoint ที่คืนสถิติรายบุคคล
-- 🚫 ห้ามจัดลำดับความเร่งด่วนตามตำแหน่งของผู้แจ้ง (อธิการบดีกับนิสิตต้องได้ P เดียวกันสำหรับอาการเดียวกัน) — ให้เขียน unit test ยืนยันข้อนี้
-- 🚫 ห้ามใช้ภาพจากระบบไปทำอย่างอื่นนอกเหนือจากงานซ่อมบำรุง
-- ✅ ต้องทดสอบอคติ: อาการเดียวกันจากอาคารนิสิต (หอพัก) กับอาคารบริหาร ต้องได้ priority เท่ากัน
-
----
-
-## 10. Non-Functional Requirements
-
-### 10.1 ประสิทธิภาพ (แทนคำว่า "ต้องเร็ว")
-
-| ตัวชี้วัด | เป้าหมาย |
-|---|---|
-| `POST /tickets` p95 (ไม่รวม AI) | < 400 ms |
-| AI triage เสร็จ p95 | < 30 วินาที นับจากสร้าง ticket |
-| AI triage เสร็จ p99 | < 60 วินาที |
-| Query dashboard p95 | < 800 ms ที่ข้อมูล 100,000 tickets |
-| รองรับการแจ้ง | 500 เรื่อง/วัน, burst 50 เรื่อง/นาที |
-
-### 10.2 ความพร้อมใช้งาน
-
-- Uptime ≥ 99% ในช่วง 07:00–19:00 น. วันทำการ
-- **การรับแจ้งต้องไม่ล้มเหลวแม้ AI ล่ม** — ระบบ degrade ไปเป็นคิวคัดกรองมนุษย์
-- RPO ≤ 24 ชม. (backup รายวัน), RTO ≤ 4 ชม.
-
-### 10.3 Rate Limits
-
-| ขอบเขต | โควตา |
-|---|---|
-| ต่อ `reporter_ref` | 10 tickets / ชม., 30 / วัน |
-| ต่อ IP (web) | 60 requests / นาที |
-| อัปโหลดไฟล์ | 20 ไฟล์ / ชม. / ผู้ใช้ |
-
-### 10.4 ต้นทุน
-
-- ต้นทุน AI ต่อ 1 ticket ≤ 0.60 บาท (ประเมินจาก 1 ภาพ + ข้อความสั้น)
-- ใช้ Haiku สำหรับงานคัดกรองเบื้องต้น/image quality gate, Sonnet สำหรับการวิเคราะห์เต็ม
-- ใช้ prompt caching สำหรับ taxonomy และรายชื่ออาคาร (ส่วนที่คงที่)
-- บันทึก token usage ทุกครั้งใน `ai_classifications` เพื่อทำรายงานต้นทุนรายเดือน
-
-### 10.5 การรองรับภาษา
-
-- UI และข้อความตอบกลับ: ภาษาไทยเป็นหลัก
-- รองรับผู้แจ้งภาษาอังกฤษ (ตอบกลับภาษาเดียวกับที่ผู้แจ้งใช้)
-- วันที่แสดงเป็น พ.ศ. ในหน้าจอผู้ใช้ แต่เก็บใน DB เป็น ISO 8601 UTC
-
----
-
-## 11. คุณภาพโมเดลและการวัดผล
-
-### 11.1 ชุดข้อมูลทดสอบ
-
-- สร้าง labeled test set จากประวัติแจ้งซ่อมจริงย้อนหลัง **≥ 300 รายการ** ที่ผู้เชี่ยวชาญ (หัวหน้าช่าง) ติดป้ายกำกับแล้ว
-- แบ่ง 70/15/15 (prompt tuning / dev / held-out test)
-- ต้องมีตัวอย่างของทุก `category` อย่างน้อย 15 รายการ และตัวอย่าง P1 อย่างน้อย 20 รายการ
-
-### 11.2 เกณฑ์ผ่าน (Acceptance Thresholds)
-
-| ตัวชี้วัด | เป้าหมายขั้นต่ำ |
-|---|---|
-| ความถูกต้องของ `category` | ≥ 85% |
-| **Recall ของ P1 (งานอันตราย)** | **≥ 95%** — พลาดงานอันตรายเป็นความเสี่ยงที่ยอมรับไม่ได้ |
-| Precision ของ P1 | ≥ 60% (ยอมให้เตือนเกินได้ ดีกว่าพลาด) |
-| ความถูกต้องของ `building_code` (เมื่อผู้แจ้งไม่ระบุ) | ≥ 70% |
-| Precision ของ duplicate detection | ≥ 80% |
-| อัตราที่ต้องคัดกรองโดยมนุษย์ | ≤ 20% ของ tickets ทั้งหมด |
-| อัตราที่เจ้าหน้าที่ต้องแก้ไขการจำแนก | ≤ 15% |
-
-### 11.3 การติดตามหลังใช้งานจริง
-
-- แดชบอร์ดคุณภาพโมเดล: แสดงอัตราการแก้ไขโดยมนุษย์รายสัปดาห์ แยกตาม category
-- ทุกครั้งที่เจ้าหน้าที่กด "AI วิเคราะห์ผิด" → บันทึกเป็นตัวอย่างสำหรับปรับ prompt รอบถัดไป
-- เปรียบเทียบ prompt version ด้วย `prompt_version` ใน `ai_classifications`
-
----
-
-## 12. Acceptance Criteria
-
-> ทุกข้อต้องมี automated test ครอบคลุม
-
-### AC-1 — สร้าง ticket จากรูปอย่างเดียว
-**Given** ผู้ใช้ส่งภาพหลอดไฟกะพริบทาง LINE โดยไม่พิมพ์ข้อความ
-**When** ระบบรับเรื่อง
-**Then** ต้องคืน `201` พร้อม `ticket_no` ภายใน 400 ms และภายใน 60 วินาที ticket ต้องมี `category = "electrical"` และมี `evidence` อย่างน้อย 1 รายการ
-
-### AC-2 — งานอันตรายต้องเป็น P1 เสมอ
-**Given** ภาพแสดงสายไฟเปลือยห้อยลงมาในทางเดิน
-**When** AI วิเคราะห์และคืน `safety_hazard = true` พร้อม `priority = "P3"`
-**Then** ระบบต้อง override เป็น `P1` และส่งแจ้งเตือนหัวหน้างานภายใน 60 วินาที
-
-### AC-3 — ไม่มีทั้งข้อความและรูป
-**Given** คำขอที่ไม่มี `text` และไม่มี `images`
-**When** เรียก `POST /tickets`
-**Then** ต้องคืน `422` พร้อม `code = "TICKET_EMPTY_INPUT"` และ **ไม่สร้าง** record ใด ๆ
-
-### AC-4 — AI ล่มต้องไม่ทำให้แจ้งซ่อมไม่ได้
-**Given** AI API คืน error ทุกครั้ง
-**When** ผู้ใช้ส่งเรื่องแจ้งซ่อม
-**Then** ticket ต้องถูกสร้างสำเร็จ สถานะ `triaging` เข้าคิวคัดกรองมนุษย์ และผู้แจ้งได้รับข้อความยืนยันการรับเรื่อง
-
-### AC-5 — ตรวจจับงานซ้ำ
-**Given** มี ticket เปิดอยู่ "แอร์ห้อง ICT1301 ไม่เย็น"
-**When** ผู้ใช้อีกคนแจ้ง "ห้อง ICT1301 ร้อนมาก แอร์เสีย"
-**Then** ระบบต้องเสนอว่าเป็นเรื่องเดียวกัน และไม่จ่ายงานใหม่ให้ช่างจนกว่าจะมีการยืนยัน
-
-### AC-6 — ไม่สร้างรหัสอาคารที่ไม่มีจริง
-**Given** AI คืน `building_code = "XYZ"` ซึ่งไม่มีในฐานข้อมูล
-**When** ระบบบันทึกผล
-**Then** `building_id` ต้องเป็น `null` และ ticket ต้องเข้าคิวคัดกรองมนุษย์
-
-### AC-7 — ปิดงาน P1 ต้องมีรูป after
-**Given** ticket ระดับ P1 สถานะ `in_progress`
-**When** ช่างกดปิดงานโดยไม่แนบภาพ `after`
-**Then** ต้องคืน `409 INVALID_STATE_TRANSITION` และสถานะไม่เปลี่ยน
-
-### AC-8 — SLA หยุดเดินเมื่อรออะไหล่
-**Given** ticket P2 อยู่สถานะ `on_hold` เป็นเวลา 3 วัน
-**When** เปลี่ยนกลับเป็น `in_progress`
-**Then** `sla_resolve_by` ต้องถูกเลื่อนออกไป 3 วัน และ ticket ต้องไม่ถูกนับว่าเกิน SLA ในช่วงนั้น
-
-### AC-9 — ทุกการแก้ไขของมนุษย์ต้องมีเหตุผล
-**Given** เจ้าหน้าที่แก้ `category` จาก `hvac` เป็น `plumbing`
-**When** ส่ง `PATCH /tickets/:id` โดยไม่มี field `reason`
-**Then** ต้องคืน `400` และไม่บันทึกการแก้ไข
-
-### AC-10 — ความเป็นธรรมของการจัดลำดับ
-**Given** อาการเดียวกันทุกประการ แจ้งจากหอพักนิสิต กับ จากอาคารสำนักงานอธิการบดี
-**When** AI วิเคราะห์ทั้งสองเรื่อง
-**Then** `priority` ที่ได้ต้องเท่ากัน (ทดสอบด้วย paired test cases อย่างน้อย 20 คู่)
-
-### AC-11 — ความเป็นส่วนตัวของภาพ
-**Given** ภาพที่มีใบหน้าบุคคลปรากฏชัด
-**When** ระบบบันทึกภาพ
-**Then** ไฟล์ใน storage ต้องมี `redacted = true` และใบหน้าถูกเบลอ และไม่มีไฟล์ต้นฉบับหลงเหลือหลัง 24 ชม.
-
-### AC-12 — ผู้แจ้งเห็นเฉพาะเรื่องของตน
-**Given** ผู้ใช้บทบาท `reporter`
-**When** เรียก `GET /tickets/:id` ของ ticket ที่ผู้อื่นแจ้ง
-**Then** ต้องคืน `404` (ไม่ใช่ `403` เพื่อไม่เปิดเผยว่ามี ticket นั้นอยู่)
-
----
-
-## 13. Tech Stack
-
-| ส่วน | เทคโนโลยี | เหตุผล |
+| Layer | Technology | Rationale |
 |---|---|---|
-| Runtime | Node.js 20 LTS | ทีมคุ้นเคย, ecosystem พร้อม |
-| API Framework | Express 4 + Zod (validation) | เบา ตรงไปตรงมา |
-| Database | PostgreSQL 16 + `pgvector` | ต้องการ relational + vector similarity ในที่เดียว |
-| Queue | BullMQ + Redis | งาน AI ต้องเป็น async |
-| Object Storage | MinIO (dev) / S3-compatible (prod) | เก็บภาพ |
-| AI | Claude (Sonnet = วิเคราะห์เต็ม, Haiku = คัดกรองเบื้องต้น) | multimodal + ควบคุม output ด้วย JSON schema ได้ |
-| Frontend | Next.js 14 + Tailwind | dashboard + mobile web สำหรับช่าง |
-| Chat channel | LINE Messaging API | adoption สูงสุดในไทย ไม่ต้องให้ใครโหลดแอปใหม่ |
-| Testing | Vitest + Supertest + Testcontainers | integration test กับ DB จริง |
-| Observability | pino (structured log) + OpenTelemetry | |
+| **Backend / API** | PHP 8.2+ (hand-rolled MVC, or Slim 4 if a ready-made router is preferred) | Team expertise; matches the university's existing environment |
+| **Database** | Microsoft SQL Server 2019+ | Matches existing division systems; cross-system joins are straightforward |
+| **DB driver** | `pdo_sqlsrv` + Microsoft ODBC Driver 18 | Full `NVARCHAR` and parameterised-query support |
+| **Frontend** | HTML5 + CSS3 + Vanilla JavaScript (ES2020 modules) | No build step, no Node on the production host, minimal maintenance |
+| **Charts** | Chart.js (vendored locally, not from a CDN) | Lightweight, works directly with vanilla JS |
+| **Messaging** | LINE Messaging API + LIFF | Zero install for users; LIFF pages are plain HTML/JS |
+| **AI** | Anthropic Claude API via Guzzle (Sonnet for full analysis, Haiku for screening) | Multimodal, with enforceable JSON output |
+| **Queue** | `job_queue` table in SQL Server + PHP CLI worker | No Redis to install or operate |
+| **File storage** | Server filesystem (`storage/media/`) outside the webroot | Sufficient at university scale |
+| **Image processing** | Imagick (fallback: GD) | Resize, fix EXIF orientation, convert HEIC, pixelate for PII redaction |
+| **Web server** | IIS + FastCGI (Windows) or Nginx + PHP-FPM (Linux) | Either works with SQL Server; choose what university IT supports |
+| **Testing** | PHPUnit 10 | Covers §12 |
+| **Logging** | Monolog (JSON lines) → `storage/logs/` | |
 
-### 13.1 Environment Variables
+### 8.2 Composer Dependencies
+
+```json
+{
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo_sqlsrv": "*",
+    "ext-imagick": "*",
+    "ext-mbstring": "*",
+    "ext-fileinfo": "*",
+    "ext-curl": "*",
+    "guzzlehttp/guzzle": "^7.8",
+    "vlucas/phpdotenv": "^5.6",
+    "firebase/php-jwt": "^6.10",
+    "ramsey/uuid": "^4.7",
+    "opis/json-schema": "^2.3",
+    "monolog/monolog": "^3.5"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.5"
+  }
+}
+```
+
+> There is no official Anthropic PHP SDK. Call the REST API directly with Guzzle in `src/Integration/AnthropicClient.php` (headers: `x-api-key`, `anthropic-version`).
+
+### 8.3 Environment Variables (`.env.example`)
 
 ```bash
-DATABASE_URL=postgres://...
-REDIS_URL=redis://...
-S3_ENDPOINT=            # MinIO/S3
-S3_BUCKET=up-fix-media
-S3_ACCESS_KEY=
-S3_SECRET_KEY=
+APP_ENV=production
+APP_URL=https://upfix.up.ac.th
+APP_TIMEZONE=Asia/Bangkok
+
+# --- SQL Server ---
+DB_HOST=localhost
+DB_PORT=1433
+DB_NAME=upfix
+DB_USER=upfix_app
+DB_PASS=
+DB_ENCRYPT=yes
+DB_TRUST_SERVER_CERT=yes
+
+# --- Storage ---
+STORAGE_PATH=/var/www/up-fix/storage      # must be outside public/
+MEDIA_MAX_BYTES=10485760                  # 10 MB
+MEDIA_MAX_FILES=5
+MEDIA_MAX_EDGE_PX=1568                    # downscale before sending to the model
+
+# --- Anthropic ---
 ANTHROPIC_API_KEY=
+ANTHROPIC_VERSION=2023-06-01
 AI_MODEL_PRIMARY=claude-sonnet-4
 AI_MODEL_FAST=claude-haiku-4
 AI_PROMPT_VERSION=v1
+AI_TIMEOUT_SECONDS=45
+
+# --- LINE ---
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
+LIFF_ID=
+
+# --- Security ---
 JWT_SECRET=
-REPORTER_ID_SALT=       # สำหรับ hash LINE userId
+JWT_TTL_MINUTES=15
+REPORTER_ID_SALT=
+
+# --- Business rules ---
 CONFIDENCE_AUTO_ASSIGN=0.75
 CONFIDENCE_HUMAN_TRIAGE=0.50
-DUPLICATE_SIMILARITY_AUTO=0.88
-DUPLICATE_SIMILARITY_ASK=0.75
+DUPLICATE_DICE_AUTO=0.75
+DUPLICATE_DICE_ASK=0.45
+DUPLICATE_LOOKBACK_DAYS=14
+
+# --- Worker ---
+WORKER_POLL_SECONDS=2
+WORKER_STALE_LOCK_MINUTES=10
 ```
 
-### 13.2 โครงสร้างโปรเจกต์
+### 8.4 Project Structure
 
 ```
 up-fix/
 ├── SPEC.md
-├── docker-compose.yml          # postgres + redis + minio
+├── composer.json
+├── .env.example                  # the real .env is never committed
+├── public/                       # ← document root points here only
+│   ├── index.php                 # front controller (API + page serving)
+│   ├── .htaccess / web.config    # rewrite everything to index.php
+│   ├── dashboard.html            # manager view
+│   ├── triage.html               # triage officer view
+│   ├── tech.html                 # technician view (opened via LIFF)
+│   ├── login.html
+│   └── assets/
+│       ├── css/
+│       │   ├── base.css          # CSS variables, reset, Thai typography
+│       │   └── components.css
+│       ├── js/
+│       │   ├── api.js            # fetch() wrapper: JWT, retry, error mapping
+│       │   ├── auth.js
+│       │   ├── ui.js             # DOM helpers (textContent only — XSS safe)
+│       │   ├── dashboard.js
+│       │   ├── triage.js
+│       │   └── technician.js
+│       └── vendor/chart.min.js
 ├── src/
-│   ├── api/
-│   │   ├── routes/             # tickets, assets, analytics, webhooks
-│   │   ├── middleware/         # auth, rbac, idempotency, ratelimit
-│   │   └── errors.ts           # error catalog §6.3
-│   ├── domain/
-│   │   ├── ticket-state.ts     # state machine §4.7
-│   │   ├── sla.ts              # คำนวณ SLA §5.2
-│   │   └── routing.ts          # จ่ายงาน §5.6
-│   ├── ai/
-│   │   ├── prompts/v1/         # แยกตาม version
-│   │   ├── schema.ts           # JSON schema §5.3
-│   │   ├── classify.ts
-│   │   ├── redact.ts           # เบลอ PII §9.1
-│   │   └── duplicate.ts        # §5.5
-│   ├── workers/                # BullMQ consumers
-│   └── db/
-│       ├── migrations/
-│       └── seed/               # อาคาร มพ. + taxonomy
-├── web/                        # Next.js dashboard
+│   ├── Http/
+│   │   ├── Router.php
+│   │   ├── Request.php
+│   │   ├── Response.php          # JSON responses + error catalog
+│   │   ├── Controllers/
+│   │   │   ├── TicketController.php
+│   │   │   ├── MediaController.php
+│   │   │   ├── AnalyticsController.php
+│   │   │   └── LineWebhookController.php
+│   │   └── Middleware/
+│   │       ├── AuthMiddleware.php
+│   │       ├── RbacMiddleware.php
+│   │       ├── IdempotencyMiddleware.php
+│   │       └── RateLimitMiddleware.php
+│   ├── Domain/
+│   │   ├── Taxonomy.php          # §4.1 single source of truth
+│   │   ├── TicketState.php       # §5.8 state machine
+│   │   ├── Sla.php               # §4.2 business days + holidays
+│   │   └── Routing.php           # §4.6 assignment
+│   ├── Ai/
+│   │   ├── Prompts/v1/
+│   │   │   ├── classify.txt
+│   │   │   ├── duplicate_judge.txt
+│   │   │   └── redact_boxes.txt
+│   │   ├── Classifier.php
+│   │   ├── SchemaValidator.php   # opis/json-schema
+│   │   ├── Redactor.php          # face/plate blurring via Imagick
+│   │   ├── ImageQualityGate.php
+│   │   ├── DuplicateFinder.php   # trigram + Dice, §4.5
+│   │   └── Schemas/classification.schema.json
+│   ├── Integration/
+│   │   ├── AnthropicClient.php
+│   │   ├── LineClient.php
+│   │   └── SmartServicesImporter.php   # legacy history import, §13
+│   ├── Queue/
+│   │   ├── JobQueue.php          # enqueue / claim, §5.7
+│   │   └── Handlers/
+│   │       ├── RedactMediaHandler.php
+│   │       ├── ClassifyTicketHandler.php
+│   │       ├── FindDuplicateHandler.php
+│   │       └── NotifyLineHandler.php
+│   ├── Support/
+│   │   ├── Env.php
+│   │   ├── Logger.php
+│   │   └── ThaiText.php          # trigrams, mb_* helpers, Buddhist-era dates
+│   └── Db/
+│       └── Connection.php        # PDO sqlsrv + deadlock retry (error 1205)
+├── bin/
+│   ├── worker.php                # job_queue consumer loop
+│   ├── scheduler.php             # SLA escalation, auto-close, purge _raw, release stale locks
+│   ├── migrate.php               # run .sql migrations in order
+│   └── eval.php                  # §11.2 model quality measurement
+├── database/
+│   ├── migrations/
+│   │   ├── 001_create_buildings.sql
+│   │   ├── 002_create_assets.sql
+│   │   ├── 003_create_tickets.sql
+│   │   ├── 004_create_ticket_media.sql
+│   │   ├── 005_create_ai_classifications.sql
+│   │   ├── 006_create_ticket_events.sql
+│   │   ├── 007_create_job_queue.sql
+│   │   └── 008_create_support_tables.sql   # counters, holidays, rate_limits, idempotency_keys
+│   └── seed/
+│       ├── buildings_up.sql
+│       └── holidays_2026.sql
+├── storage/                      # ← outside the webroot
+│   ├── media/
+│   │   ├── _raw/                 # originals, deleted within 24 h
+│   │   └── {yyyy}/{mm}/
+│   └── logs/
 └── tests/
-    ├── integration/
-    ├── fixtures/               # ภาพตัวอย่างสำหรับ test
-    └── eval/                   # labeled test set §11.1
+    ├── Unit/
+    ├── Feature/                  # exercise the API through the Router
+    ├── Fixtures/
+    └── eval/
+        ├── dataset.json
+        └── images/
 ```
 
+### 8.5 Running the Worker and Scheduler
+
+**Linux (systemd)** — two always-restarting services:
+
+```ini
+# /etc/systemd/system/upfix-worker@.service
+[Service]
+ExecStart=/usr/bin/php /var/www/up-fix/bin/worker.php --id=%i
+Restart=always
+RestartSec=5
+```
+
+Run two instances: `systemctl enable --now upfix-worker@1 upfix-worker@2`
+`scheduler.php` runs from cron every minute.
+
+**Windows Server** — Task Scheduler:
+- `worker.php` — trigger "At startup", with "Restart on failure every 1 minute"
+- `scheduler.php` — trigger "Every 1 minute"
+
+> The worker must be **idempotent** and must exit voluntarily after 1,000 jobs or 30 minutes so the process is restarted and memory reclaimed — long-running PHP CLI processes leak.
+
+### 8.6 Frontend Conventions
+
+- **ES modules** (`<script type="module">`). No bundler, no build step.
+- Every API call goes through `assets/js/api.js` so JWT attachment, retries, and Thai error messages live in one place.
+- Build DOM with `document.createElement` + `textContent`. **Never `innerHTML` with user data** (§10.2).
+- Poll ticket status with `setTimeout` backoff (2s → 4s → 8s, capped at 30s). Never `setInterval`.
+- `tech.html` is mobile-first: large touch targets, camera capture via `<input type="file" accept="image/*" capture="environment">`.
+- Render dates in the Buddhist era with `Intl.DateTimeFormat('th-TH-u-ca-buddhist')`.
+
 ---
 
-## 14. ขอบเขตสำหรับเดโม (Hackathon Scope)
+## 9. Non-Functional Requirements
 
-### ต้องมี (Must have)
+### 9.1 Performance (replacing "must be fast")
 
-- [ ] รับแจ้งผ่าน LINE OA ด้วยรูป + ข้อความ
-- [ ] AI จำแนกประเภท + ความเร่งด่วน + สรุปอาการ พร้อม evidence
-- [ ] ตรวจจับงานอันตราย → P1 + แจ้งเตือน
-- [ ] ตรวจจับงานซ้ำ
-- [ ] Dashboard เจ้าหน้าที่: คิวงาน คิวคัดกรอง จ่ายงาน
-- [ ] หน้าจอช่าง (mobile web): รับงาน ปิดงานพร้อมรูป after
-- [ ] วิเคราะห์ "ซ่อมวน" จากประวัติจริงย้อนหลัง
-- [ ] Audit log ครบทุก action
+| Metric | Target |
+|---|---|
+| `POST /tickets` p95 (excluding AI) | < 400 ms |
+| AI triage completion p95 | < 30 s from ticket creation |
+| AI triage completion p99 | < 60 s |
+| Dashboard query p95 | < 800 ms at 100,000 tickets |
+| Worker poll interval | 2 s |
+| Throughput | 500 tickets/day, burst 50/minute |
+| Minimum workers | 2 processes (failover) |
 
-### ควรมี (Should have)
+### 9.2 Availability
 
-- [ ] เบลอใบหน้า/ทะเบียนอัตโนมัติ
-- [ ] คาดการณ์วัสดุที่ต้องใช้
-- [ ] รายงาน SLA รายทีม
-- [ ] แดชบอร์ดต้นทุน AI รายเดือน
+- Uptime ≥ 99% during 07:00–19:00 on business days
+- **Intake must never fail because AI is down** — the system degrades to a human triage queue
+- RPO ≤ 24 h (daily SQL Server full backup + hourly transaction log backup), RTO ≤ 4 h
+- `storage/media/` must be included in the backup plan — a database backup alone is insufficient
 
-### ไว้เฟสถัดไป (Won't have — พูดเป็น roadmap)
+### 9.3 Rate Limits
 
-- [ ] เชื่อม API ระบบพัสดุ/คลังอะไหล่
-- [ ] พยากรณ์การชำรุดล่วงหน้า (predictive maintenance)
-- [ ] เชื่อมข้อมูลมิเตอร์พลังงานเพื่อจับอุปกรณ์กินไฟผิดปกติ
-- [ ] แอปพลิเคชันเฉพาะสำหรับช่าง (offline mode)
+| Scope | Quota |
+|---|---|
+| Per `reporter_ref` | 10 tickets/hour, 30/day |
+| Per IP (web) | 60 requests/minute |
+| File uploads | 20 files/hour/user |
+
+Implemented with a `rate_limits` table (fixed window). No Redis required.
+
+### 9.4 Cost
+
+- AI cost per ticket ≤ THB 0.60 (based on one image plus short text)
+- **Haiku** for the image quality gate, initial screening, and duplicate adjudication; **Sonnet** for full analysis
+- Prompt caching for static content (taxonomy, building list, system instructions)
+- Downscale images so the longest edge is ≤ 1,568 px before sending — larger costs tokens without improving accuracy
+- Record token usage on every call in `ai_classifications`, surfaced as a monthly cost report
+
+### 9.5 Localisation
+
+- UI and reporter-facing messages are Thai by default
+- English reporters are supported; reply in whichever language the reporter used
+- Dates are displayed in the Buddhist era but stored in UTC
+- Use `mb_*` functions everywhere Thai strings are manipulated in PHP
 
 ---
 
-## 15. การเชื่อมต่อระบบเดิมของกองอาคารสถานที่
+## 10. Security, Privacy and AI Governance
 
-ระบบต้องออกแบบให้เชื่อมต่อกับระบบที่กองอาคารฯ ใช้อยู่ได้ ผ่าน adapter layer:
+### 10.1 PDPA and Personal Data
 
-| ระบบเดิม | รูปแบบการเชื่อมต่อ | ลำดับความสำคัญ |
+- **Automatic redaction** of faces and vehicle number plates before any image is served.
+  Implementation on this stack: the vision model returns normalised bounding boxes (`{x, y, w, h}` in 0–1), then `src/Ai/Redactor.php` pixelates those regions with **Imagick** (or GD) and writes a new file marked `redacted = 1`.
+- Originals live in `storage/media/_raw/` and are deleted by the scheduler within 24 hours.
+- LINE `userId` is stored hashed: `hash('sha256', $userId . REPORTER_ID_SALT)`. The raw value is never persisted.
+- Names, phone numbers, and email addresses are never sent to the LLM — only the fault description and redacted images.
+- Retention: images 2 years, ticket records 5 years (per government records regulations), then anonymised.
+- Reporters may request deletion of their personal data; the ticket remains in anonymised form.
+- A privacy notice and consent step is required when a user first links the LINE OA.
+
+### 10.2 System Security
+
+| Topic | Requirement |
+|---|---|
+| RBAC | Five roles: `reporter`, `technician`, `triage`, `manager`, `admin`. Reporters see only their own tickets; technicians only assigned jobs; triage/manager see everything, and exports are audited. |
+| SQL injection | **PDO prepared statements only.** String-concatenated SQL is forbidden without exception. |
+| Image files | Stored **outside the webroot** (`storage/media/`) and served through `GET /api/v1/media/{id}` after an authorisation check, via `readfile()`. Never place uploads under `public/`. |
+| Filenames | Always regenerated as UUIDs. User-supplied filenames are discarded. |
+| XSS | Frontend uses `textContent`, never `innerHTML`, for user data. Backend uses `htmlspecialchars($s, ENT_QUOTES, 'UTF-8')`. |
+| CSRF | The API is token-based (no cookie sessions), so CSRF does not apply. If cookies are ever introduced, add `SameSite=Strict` plus CSRF tokens. |
+| JWT | 15-minute lifetime plus refresh token. Always verify `alg`; reject `none`. |
+| Transport | HTTPS enforced (TLS 1.2+), HSTS enabled. |
+| Secrets | All keys in `.env`, excluded from git and located outside the webroot. |
+| Audit | `ticket_events` is append-only, enforced with `DENY UPDATE, DELETE` at the database level. |
+
+### 10.3 Transparency and Hallucination Control
+
+| Control | Detail |
+|---|---|
+| **Evidence required** | Every classification must carry at least one `evidence` item referencing something actually visible in the image or present in the text |
+| **No arithmetic by the LLM** | SLA, routing, accumulated cost, and all statistics are computed in PHP/SQL |
+| **No invented identifiers** | `building_code` / `asset_code` are validated against the database; unmatched values become `NULL` |
+| **Confidence is shown** | The staff UI always displays the confidence level and an "AI got this wrong" button |
+| **Permission to be uncertain** | Below 0.50 confidence the system must say it is unsure and ask, never guess |
+| **Humans decide** | AI proposes and prioritises; the supervisor approves or overrides, with the reason recorded |
+
+### 10.4 Ethical Constraints (enforced in code, not just policy)
+
+- 🚫 **This data must never be used to evaluate individual technicians.** No endpoint may return per-person statistics; all `/analytics/*` responses are aggregated at team level.
+- 🚫 Priority must never depend on the reporter's seniority — the Rector and a first-year student reporting the same fault must receive the same priority. A unit test enforces this.
+- 🚫 Images collected here must not be used for any purpose other than maintenance work.
+- ✅ Bias testing is mandatory: identical symptoms reported from a student dormitory and from the administration building must yield identical priority (AC-10).
+
+---
+
+## 11. Model Quality and Evaluation
+
+### 11.1 Test Dataset
+
+- Build a labelled test set of **≥ 300 records** from real historical maintenance requests, labelled by a senior technician
+- Split 70/15/15 (prompt tuning / dev / held-out test)
+- Every `category` must have at least 15 examples; P1 must have at least 20
+- Stored as `tests/eval/dataset.json` with images in `tests/eval/images/`
+
+### 11.2 Acceptance Thresholds
+
+| Metric | Minimum |
+|---|---|
+| `category` accuracy | ≥ 85% |
+| **P1 recall (hazardous faults)** | **≥ 95%** — missing a hazard is an unacceptable risk |
+| P1 precision | ≥ 60% (over-flagging is preferable to missing) |
+| `building_code` accuracy (when the reporter omits it) | ≥ 70% |
+| Duplicate detection precision | ≥ 80% |
+| Share of tickets requiring human triage | ≤ 20% |
+| Share of classifications corrected by staff | ≤ 15% |
+
+Run with `php bin/eval.php --dataset=tests/eval/dataset.json`, which prints a confusion matrix.
+
+### 11.3 Production Monitoring
+
+- Model quality dashboard: weekly human-correction rate, broken down by category
+- Every "AI got this wrong" click is captured as a training example for the next prompt revision
+- Prompt versions are compared through `ai_classifications.prompt_version`
+
+---
+
+## 12. Edge Cases
+
+### 12.1 Reporter Input
+
+| Case | Required behaviour |
+|---|---|
+| Image only, no text | ✅ Proceed normally; analyse from the image alone |
+| Text only, no image | ✅ Proceed, but reduce confidence by 0.15 and request a photo |
+| Neither | ❌ `422 TICKET_EMPTY_INPUT` |
+| Text longer than 5,000 characters | Truncate with `mb_substr()` and set the `text_truncated` flag |
+| Blurry or dark image (`quality_score < 0.3`) | Ask for a retake: "Please photograph the fault clearly with the lights on" |
+| Irrelevant image (selfie, screenshot, meme) | Politely state no fault was found and request a new photo. **Do not create a ticket.** |
+| Image contains faces or number plates | Blur automatically before storage (§10.1) |
+| HEIC image from an iPhone | Convert to JPEG with Imagick before sending to the model |
+| Wrong rotation (EXIF orientation) | Correct orientation first, otherwise the model misreads the scene |
+| Misspellings, Northern Thai dialect, tradesperson slang | The LLM must cope; these must appear in the §11.1 test set |
+| English-language report | ✅ Supported; reply in the reporter's language |
+| Not this division's responsibility (network down, broken PC) | Status `rejected` + redirect to the correct channel (ICT Centre) |
+| Abusive text or a complaint about a person | Create the ticket normally, but exclude the accusatory portion from the LLM prompt and notify the supervisor |
+| Rapid repeat submissions (spam) | Rate limit per §9.3 → `429` |
+
+### 12.2 Location and Assets
+
+| Case | Behaviour |
+|---|---|
+| Building unknown but GPS present | Find the nearest building within 80 m (Haversine in SQL) and ask for confirmation |
+| GPS outside campus | Ignore the GPS and ask the reporter for the building |
+| Model returns a building code not in the database | `building_id = NULL` + human triage. **Never auto-create buildings.** |
+| Room does not exist in that building | Store the value in `location_note` instead of `room` |
+| `assets` table is empty | System works normally with `asset_id = NULL` |
+
+### 12.3 Infrastructure
+
+| Case | Behaviour |
+|---|---|
+| AI API timeout or outage | The ticket is always created. Job retries 3× (backoff 2s/8s/30s via `run_after`), then falls back to human triage with the reporter told "under review by staff" |
+| AI returns malformed JSON | Retry twice with the validation error fed back, then human triage |
+| Worker crashes mid-job | Jobs stuck in `running` for 10+ minutes are reset to `pending` by `bin/scheduler.php` |
+| LINE redelivers a webhook | `webhookEventId` used as the idempotency key in `idempotency_keys` |
+| Some uploads succeed, some fail | Ticket is still created, `partial_upload` recorded, reporter told which image failed |
+| Image storage full | Ticket created from text; upload job retries; admin alerted through `/healthz` |
+| SQL Server deadlock | Catch error 1205 (deadlock victim) and retry the transaction up to 3×. Other errors → `503` with a Thai message |
+| Technician closes without an `after` photo | ❌ Rejected for P1/P2 (`INVALID_STATE_TRANSITION`); ⚠️ warned but allowed for P3/P4 |
+| Job awaiting parts | `on_hold` with `on_hold_reason`; the SLA clock stops |
+| P1 raised outside office hours | Notify the duty guard and supervisor immediately on all channels |
+| SLA breach | Auto-escalate to the supervisor at 100% of SLA and to the director at 150% |
+| Reporter deletes their LINE message | Ticket data is retained — it is an official record |
+| Server timezone is already UTC+7 | Still store UTC in the database; convert only for display, so a server migration cannot corrupt timestamps |
+
+---
+
+## 13. Acceptance Criteria
+
+> Every criterion must be covered by an automated PHPUnit test.
+
+**AC-1 — Ticket from an image alone**
+**Given** a reporter sends a photo of a flickering lamp via LINE with no text
+**When** the system receives it
+**Then** it returns `201` with a `ticket_no` within 400 ms, and within 60 s the ticket has `category = 'electrical'` and at least one `evidence` entry.
+
+**AC-2 — Hazards are always P1**
+**Given** an image showing exposed live wiring in a corridor
+**When** the AI returns `safety_hazard = true` with `priority = 'P3'`
+**Then** the system overrides to `P1` and notifies the supervisor within 60 s.
+
+**AC-3 — Empty submission**
+**Given** a request with neither `text` nor `images`
+**When** `POST /tickets` is called
+**Then** it returns `422 TICKET_EMPTY_INPUT` and **no** database row is created.
+
+**AC-4 — AI outage must not block intake**
+**Given** the Anthropic API returns an error on every call (mocked)
+**When** a reporter submits a request
+**Then** the ticket is created with status `triaging`, enters the human triage queue, and the reporter receives an acknowledgement.
+
+**AC-5 — Duplicate detection**
+**Given** an open ticket "แอร์ห้อง ICT1301 ไม่เย็น"
+**When** another reporter submits "ห้อง ICT1301 ร้อนมาก แอร์เสีย"
+**Then** the system proposes they are the same issue and does not dispatch a second technician until confirmed.
+
+**AC-6 — No invented building codes**
+**Given** the AI returns `building_code = 'XYZ'`, absent from `buildings`
+**When** the result is persisted
+**Then** `building_id` is `NULL` and the ticket enters human triage.
+
+**AC-7 — P1 closure requires an after photo**
+**Given** a P1 ticket in `in_progress`
+**When** the technician attempts to close it without an `after` image
+**Then** it returns `409 INVALID_STATE_TRANSITION` and the status is unchanged.
+
+**AC-8 — SLA pauses while awaiting parts**
+**Given** a P2 ticket sits in `on_hold` for 3 days
+**When** it returns to `in_progress`
+**Then** `sla_resolve_by` shifts by 3 days and the ticket is not counted as breached for that period.
+
+**AC-9 — Human overrides require a reason**
+**Given** an officer changes `category` from `hvac` to `plumbing`
+**When** `PATCH /tickets/{id}` is sent without `reason`
+**Then** it returns `400` and no change is recorded.
+
+**AC-10 — Prioritisation fairness**
+**Given** identical symptoms reported from a student dormitory and from the Rector's office building
+**When** the AI analyses both
+**Then** the resulting `priority` is identical (at least 20 paired test cases).
+
+**AC-11 — Image privacy**
+**Given** an image in which a person's face is clearly visible
+**When** the system stores it
+**Then** the served file has `redacted = 1` with the face blurred, and no file remains in `_raw/` after 24 hours.
+
+**AC-12 — Reporters see only their own tickets**
+**Given** a user with the `reporter` role
+**When** they request `GET /tickets/{id}` for someone else's ticket
+**Then** it returns `404`, not `403`, so the ticket's existence is not disclosed.
+
+**AC-13 — Images are not directly reachable**
+**Given** an unauthenticated user who knows an image file path
+**When** they request the file URL directly
+**Then** access fails (the file is outside the webroot), and `GET /api/v1/media/{id}` returns `401`.
+
+**AC-14 — Ticket numbers are unique under concurrency**
+**Given** 50 concurrent `POST /tickets` requests
+**When** all succeed
+**Then** all 50 `ticket_no` values are distinct.
+
+---
+
+## 14. Demo Scope (Hackathon)
+
+### Must have
+
+- [ ] Intake via LINE OA with photo + text
+- [ ] AI classification: category, priority, summary, with `evidence`
+- [ ] Hazard detection forcing P1 + notification
+- [ ] Duplicate detection (trigram + Dice)
+- [ ] Staff dashboard: job queue, triage queue, assignment
+- [ ] Technician LIFF view: accept job, close with `after` photo
+- [ ] Repeat-repair analysis over real historical data
+- [ ] Complete `ticket_events` audit log
+
+### Should have
+
+- [ ] Automatic face and number-plate blurring
+- [ ] Predicted materials list
+- [ ] SLA report by team
+- [ ] Monthly AI cost dashboard
+
+### Won't have (present as roadmap)
+
+- [ ] Inventory / spare-parts API integration
+- [ ] Predictive maintenance
+- [ ] Energy-meter correlation to catch abnormally power-hungry equipment
+- [ ] Offline mode for technicians in low-signal areas
+
+---
+
+## 15. Integration with Existing Division Systems
+
+| Existing system | Integration approach | Priority |
 |---|---|---|
-| Smart Services (ระบบแจ้งซ่อมเดิม) | นำเข้าประวัติย้อนหลัง (CSV/DB) + sync สองทางในอนาคต | สูง |
-| ทะเบียนครุภัณฑ์/พัสดุ | นำเข้าเป็น `assets` | กลาง |
-| UP DMS (ระบบเอกสาร) | ส่งออกใบสั่งงาน/รายงานประจำเดือน | ต่ำ |
-| Smart Water | อ้างอิงข้อมูลการใช้น้ำเพื่อยืนยันเหตุท่อรั่ว | ต่ำ |
-| ระบบยืนยันตัวตนมหาวิทยาลัย (SSO) | OIDC สำหรับ dashboard เจ้าหน้าที่ | สูง |
+| **Smart Services** (legacy maintenance system) | Import history via `SmartServicesImporter`. If it sits on the same SQL Server instance, query across databases directly; otherwise use a Linked Server or CSV export. | High |
+| Asset / inventory register | Import into the `assets` table | Medium |
+| **UP DMS** (document system) | Export work orders and monthly reports | Low |
+| **Smart Water** | Cross-reference water consumption to corroborate leak reports | Low |
+| University SSO | OIDC/SAML for the staff dashboard | High |
 
-**หลักการ:** ทุกการเชื่อมต่อผ่าน adapter interface เดียว (`src/integrations/*`) เพื่อให้เปลี่ยนระบบปลายทางได้โดยไม่กระทบ core
+**Principle:** every integration goes through a single interface layer in `src/Integration/`, so a downstream system can be swapped without touching the core.
 
 ---
 
 ## 16. Open Questions
 
-คำถามที่ต้องได้คำตอบจากกองอาคารสถานที่ก่อนเริ่มพัฒนา:
+To be answered by the Division of Buildings and Grounds / ICT Centre before development starts:
 
-1. ประวัติแจ้งซ่อมย้อนหลังมีกี่รายการ ครอบคลุมกี่ปี และมีคอลัมน์อะไรบ้าง?
-2. รายชื่ออาคารและรหัสอาคารมาตรฐานของมหาวิทยาลัยมีที่ไหน?
-3. โครงสร้างทีมช่างปัจจุบันแบ่งเป็นกี่สาย แต่ละสายรับผิดชอบโซนไหน?
-4. มีการกำหนด SLA อย่างเป็นทางการอยู่แล้วหรือไม่ ถ้ามีให้ใช้ของจริงแทน §5.2
-5. ทะเบียนครุภัณฑ์ (แอร์ ลิฟต์ ปั๊มน้ำ) อยู่ในรูปแบบใด และเชื่อมต่อได้หรือไม่?
-6. LINE OA ของกองอาคารฯ มีอยู่แล้วหรือต้องสร้างใหม่?
-7. นโยบายการเก็บภาพและข้อมูลส่วนบุคคลของมหาวิทยาลัยกำหนดระยะเวลาไว้เท่าไร?
-8. ระบบจะโฮสต์บนเซิร์ฟเวอร์ของมหาวิทยาลัยหรือ cloud ภายนอก?
+1. How many historical maintenance records exist, covering how many years, and with which columns?
+2. What database does the existing Smart Services run on, and is it on the same SQL Server instance?
+3. Where is the authoritative list of building names and standard building codes?
+4. How many technician teams exist today, and which zone does each cover?
+5. Is there an official SLA already in force? If so, it replaces §4.2.
+6. Does the division already have a LINE OA, or must one be created?
+7. Will the server be Windows/IIS or Linux/Nginx, and which PHP version?
+8. Can the `pdo_sqlsrv` and `imagick` extensions be installed on that server?
+9. What retention period does university policy mandate for images and personal data?
+10. Can the server make outbound HTTPS calls to the Anthropic and LINE APIs?
 
 ---
 
@@ -823,4 +1153,6 @@ up-fix/
 
 | Version | Date | Changes |
 |---|---|---|
-| 1.0 | 2026-08-18 | ฉบับแรก — แทนที่สเปกเดิม (TeamBoard Card Feature) ทั้งฉบับ |
+| 2.0 | 2026-08-18 | Rewritten in English. Same technical content as 1.1, restructured to follow the original spec's section order (Goal → Requirements → Tech Stack → Edge Cases) with supporting sections added. |
+| 1.1 | 2026-08-18 | Retargeted to PHP + Vanilla JS + SQL Server: SQL Server data types throughout, `job_queue` table + PHP CLI worker replacing Redis/BullMQ, trigram + Dice coefficient replacing pgvector, race-safe ticket numbering, AC-13/AC-14 added. |
+| 1.0 | 2026-08-18 | Initial version — replaced the previous TeamBoard Card Feature spec in full. |
