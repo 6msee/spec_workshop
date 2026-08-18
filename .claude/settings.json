@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "gsd-core": {
+      "source": {
+        "source": "github",
+        "repo": "open-gsd/gsd-core"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "gsd-core@gsd-core": true
+  }
+}
