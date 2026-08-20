@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-08-20T04:07:03.561Z",
+  "phase": "1",
+  "phase_name": "foundations-data-layer-job-queue-infrastructure",
+  "phase_dir": ".planning/phases/01-foundations-data-layer-job-queue-infrastructure",
+  "plan": "01-01",
+  "task": 2,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [],
+  "remaining_tasks": [
+    {"id": 1, "name": "Select PHP/pdo_sqlsrv version floor (checkpoint:decision)", "status": "auto_resolved_not_applied", "progress": "Executor auto-selected option php83 (PHP 8.3+ + pdo_sqlsrv 5.13.3) per --auto rules, but has not yet written composer.json/README.md/phpunit.xml — re-select or confirm php83 on resume"},
+    {"id": 2, "name": "Tracer: submit text fault report, get ticket number (type=tracer)", "status": "blocked", "progress": "Blocked on unmet <precondition>: reachable SQL Server 2019+, DB_HOST/DB_NAME/DB_USER/DB_PASS in .env, php -m lists pdo_sqlsrv. User is provisioning environment now (chose 'I'll provision it now')."},
+    {"id": 3, "name": "Remaining 01-01-PLAN.md task (append-only ticket_events audit trail, AUDIT-01)", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "No PHP, Composer, or SQL Server instance in this sandbox; no passwordless sudo (apt-get install requires interactive auth); no Docker installed in WSL or on Windows host (checked /mnt/c/Program Files/Docker, no docker.sock)", "type": "technical", "workaround": "User is running Stage 1 (PHP 8.5 via native Ubuntu 26.04 apt repo + Composer) manually via `!` prefix. Stage 2 (SQL Server) still undecided — options given: install Docker Desktop w/ WSL2 integration, or point at an existing/remote instance. Stage 3 (unixODBC + Microsoft ODBC Driver 18 + pdo_sqlsrv via PECL) not yet attempted — Ubuntu 26.04 is very new, Microsoft's msodbcsql18 package may not have official 26.04 support yet and could need a jammy/noble repo workaround."}
+  ],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {"action": "Run Stage 1 command block (apt-get install php8.5-cli + composer install script) via `!` prefix", "context": "Needed before Task 2's tracer slice (composer.json, PHP app code) can execute", "blocking": true},
+    {"action": "Decide Stage 2 SQL Server approach: install Docker Desktop (WSL2 integration) and run mssql/server container, OR point .env at an existing/remote SQL Server instance", "context": "Task 2's <precondition> requires a reachable SQL Server 2019+ with working DB_HOST/DB_NAME/DB_USER/DB_PASS", "blocking": true},
+    {"action": "Install unixODBC + Microsoft ODBC Driver 18 + pdo_sqlsrv (PECL) once PHP/Composer are in place", "context": "pdo_sqlsrv is required for Db/Connection.php (Task 2) and is not yet installed; Ubuntu 26.04 package availability for msodbcsql18 is unverified", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Task 1 checkpoint:decision (PHP version floor) auto-resolved to option php83 — PHP 8.3+ with pdo_sqlsrv 5.13.3 — per --auto mode rules (gate=\"blocking\", not blocking-human)", "rationale": "Planner listed php83 first as the recommended/auto-mode default; STATE.md's carried blocker (pdo_sqlsrv 5.13.0+ requires PHP 8.3+) supports this choice", "phase": "1"},
+    {"decision": "Ubuntu 26.04's native apt repo ships php8.5 (no php8.3 package) — this satisfies the \">=8.3\" constraint from the php83 decision, so no PPA is needed for PHP itself", "rationale": "Checked apt-cache policy; php8.5-cli is the available candidate and 8.5 >= 8.3", "phase": "1"},
+    {"decision": "Chose sequential (no worktree isolation) executor dispatch for all 3 phase-1 plans", "rationale": "Each wave contains exactly one plan (01-01→01-02→01-03 are strictly sequential dependencies) so there is no parallel-safety benefit from worktree isolation, and the /mnt/c WSL cross-filesystem mount makes worktree git operations riskier than necessary", "phase": "1"}
+  ],
+  "uncommitted_files": [
+    ".planning/STATE.md",
+    ".planning/milestone.lock"
+  ],
+  "next_action": "Check whether the user has completed Stage 1 (PHP/Composer install) and decided on Stage 2 (SQL Server: Docker Desktop vs remote instance). If both are ready, re-spawn gsd-executor for plan 01-01 (same prompt as before — required_reading paths + auto_mode + sequential_execution blocks) and let it resume from Task 1 (apply the already-decided php83 choice: write composer.json with \"php\": \">=8.3\", README.md, phpunit.xml) through Task 2 (tracer slice) and Task 3. If environment still not ready, continue troubleshooting Stage 2/3 with the user (Docker Desktop install steps, or msodbcsql18 Ubuntu-26.04 compatibility workaround via jammy/noble apt source).",
+  "context_notes": "Phase 1 of 5 for UP-Fix (University of Phayao maintenance-request system). Planning pipeline (project research → requirements → roadmap → discuss-phase → phase research → pattern-mapper → planner → plan-checker → requirements/decision coverage gates) is fully complete and committed through commit 72e6d6d. Execution just started: gsd-executor was spawned for plan 01-01 (wave 1 of 3, Walking Skeleton per SKELETON.md) and hit a genuine environment blocker at Task 2's <precondition> — no PHP/Composer/SQL Server/Docker exist in this sandbox and apt-get needs interactive sudo. User chose to provision the environment themselves via `!` prefix commands rather than replanning or stopping. Gave Stage 1 (PHP 8.5 + Composer + unixodbc-dev + build tools, all via native Ubuntu 26.04 apt — no PPA needed since repo already has php8.5) as a ready-to-run command block; asked user to choose Stage 2 (SQL Server via Docker Desktop install, or existing/remote instance) but got interrupted by a usage-limit checkpoint before receiving their answer, so pausing here. Waves 2 (01-02, job queue) and 3 (01-03, photo intake) have NOT been dispatched — only wave 1 was attempted. No files were modified or committed by the executor (it stopped cleanly at the precondition check before writing anything). .planning/milestone.lock exists (session lock file, phase 1, this session's PID) — leave it in place, it's expected during active execution, do not delete unless the lock is confirmed stale."
+}
