@@ -73,4 +73,32 @@
 
 ## Traceability
 
-*(Filled by roadmapper during Create Roadmap step)*
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INTAKE-01 | Phase 4 | Pending |
+| INTAKE-02 | Phase 4 | Pending |
+| INTAKE-03 | Phase 2 | Pending |
+| AI-01 | Phase 2 | Pending |
+| AI-02 | Phase 3 | Pending |
+| AI-03 | Phase 4 | Pending |
+| AI-04 | Phase 2 | Pending |
+| DUP-01 | Phase 2 | Pending |
+| DUP-02 | Phase 4 | Pending |
+| DUP-03 | Phase 2 | Pending |
+| ROUTE-01 | Phase 3 | Pending |
+| STATUS-01 | Phase 4 | Pending |
+| STATUS-02 | Phase 4 | Pending |
+| TECH-01 | Phase 4 | Pending |
+| TECH-02 | Phase 4 | Pending |
+| DASH-01 | Phase 4 | Pending |
+| DASH-02 | Phase 5 | Pending |
+| DASH-03 | Phase 5 | Pending |
+| DASH-04 | Phase 4 | Pending |
+| SLA-01 | Phase 3 | Pending |
+| SLA-02 | Phase 3 | Pending |
+| AUDIT-01 | Phase 1 | Pending |
+| AUDIT-02 | Phase 2 | Pending |
+| AUDIT-03 | Phase 4 | Pending |
+| AUDIT-04 | Phase 2 | Pending |
+| AUDIT-05 | Phase 2 | Pending |
+| LEGACY-01 | Phase 5 | Pending |
