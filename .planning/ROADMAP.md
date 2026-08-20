@@ -30,7 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Every ticket state change is captured as an append-only `ticket_events` record that cannot be edited or deleted after the fact.
   3. Enqueued AI jobs are claimed atomically by a worker process, with no double-processing on concurrent workers or crash-retry.
   4. The buildings/assets reference data needed for classification and routing is seeded and queryable (or explicitly flagged as placeholder pending university data).
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Walking skeleton: scaffold, migrations, and text ticket intake end-to-end with an immutable audit trail (AUDIT-01)
+- [ ] 01-02-PLAN.md — Job queue infrastructure: atomic claim, worker loop with idempotency seam, and stale-lock crash recovery
+- [ ] 01-03-PLAN.md — Photo intake with MIME sniffing, remaining SPEC section 5 tables, placeholder reference data, AC-14 concurrency proof, and /healthz
 
 ### Phase 2: AI Classification Pipeline (gated, P1 recall ≥95%)
 **Goal**: Every submitted ticket is automatically classified with an evidence-backed decision — safety hazards are force-escalated to P1 with zero tolerance for missed hazards, PII is redacted from stored images, and near-duplicate tickets are caught before dispatch — validated against the labelled eval set before any downstream phase depends on this output.
@@ -89,7 +94,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundations, Data Layer & Job Queue Infrastructure | 0/TBD | Not started | - |
+| 1. Foundations, Data Layer & Job Queue Infrastructure | 0/3 | Planned | - |
 | 2. AI Classification Pipeline (gated) | 0/TBD | Not started | - |
 | 3. Routing, Dispatch & SLA | 0/TBD | Not started | - |
 | 4. Multi-Channel Launch — LINE, Staff Dashboard & Technician LIFF | 0/TBD | Not started | - |
