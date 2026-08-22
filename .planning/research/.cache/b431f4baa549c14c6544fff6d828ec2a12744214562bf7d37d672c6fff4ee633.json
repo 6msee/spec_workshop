@@ -1,0 +1,1 @@
+{"content":"firebase/php-jwt latest stable is v7.1.0 (Jun 2026). SPEC.md's ^6.10 constraint should be widened to ^7.0 for latest algorithm/security fixes; v7 API is source-compatible with v6 for the common encode/decode usage.","source":"web","provider":"websearch","confidence":"MEDIUM","fetched_at":"2026-08-18T08:45:16.462Z","ttl":86400000,"kind":"web"}

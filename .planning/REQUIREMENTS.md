@@ -42,7 +42,7 @@
 - [ ] **SLA-02**: On-hold time is excluded from the SLA clock
 
 ### Audit & Compliance (AUDIT)
-- [ ] **AUDIT-01**: Full audit trail (`ticket_events`, append-only) for every state transition and reclassification
+- [x] **AUDIT-01**: Full audit trail (`ticket_events`, append-only) for every state transition and reclassification
 - [ ] **AUDIT-02**: PII protection — automatic face/license-plate redaction on stored images
 - [ ] **AUDIT-03**: LINE user IDs are hashed, never stored raw
 - [ ] **AUDIT-04**: Raw (unredacted) images are purged within 24h
@@ -96,7 +96,7 @@
 | DASH-04 | Phase 4 | Pending |
 | SLA-01 | Phase 3 | Pending |
 | SLA-02 | Phase 3 | Pending |
-| AUDIT-01 | Phase 1 | Pending |
+| AUDIT-01 | Phase 1 | Complete |
 | AUDIT-02 | Phase 2 | Pending |
 | AUDIT-03 | Phase 4 | Pending |
 | AUDIT-04 | Phase 2 | Pending |

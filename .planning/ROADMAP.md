@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Walking skeleton: scaffold, migrations, and text ticket intake end-to-end with an immutable audit trail (AUDIT-01)
+- [x] 01-01-PLAN.md — Walking skeleton: scaffold, migrations, and text ticket intake end-to-end with an immutable audit trail (AUDIT-01) — complete, see 01-01-SUMMARY.md
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
