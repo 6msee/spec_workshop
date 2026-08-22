@@ -6,17 +6,18 @@ namespace UpFix\Http\Controllers;
 
 use Ramsey\Uuid\Uuid;
 use UpFix\Db\Connection;
+use UpFix\Domain\EventLog;
 use UpFix\Domain\TicketNumber;
 use UpFix\Http\Request;
 use UpFix\Http\Response;
 
 /**
  * POST /api/v1/tickets — the walking-skeleton intake path. One request,
- * one transaction: allocate ticket_no, insert the tickets row, commit.
+ * one transaction: allocate ticket_no, insert the tickets row, record the
+ * append-only `created` event, commit.
  *
  * Media, empty-input rejection, and job enqueue are deliberately out of
- * this task — plans 01-02 and 01-03 expand this same path. The append-only
- * `created` ticket_events write is added in Task 3 (EventLog).
+ * this task — plans 01-02 and 01-03 expand this same path.
  */
 final class TicketController
 {
@@ -85,6 +86,18 @@ final class TicketController
                         'gps_lng' => $gpsLng,
                         'status' => $status,
                     ],
+                );
+
+                // Same transaction as the tickets INSERT above -- a failed
+                // audit write aborts the ticket rather than producing a
+                // ticket with no history (AUDIT-01).
+                EventLog::record(
+                    $this->db,
+                    $ticketId,
+                    'system',
+                    null,
+                    'created',
+                    ['ticket_no' => $ticketNo, 'channel' => $channel],
                 );
 
                 $pdo->commit();

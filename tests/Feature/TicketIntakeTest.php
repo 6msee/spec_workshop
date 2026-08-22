@@ -27,6 +27,12 @@ final class TicketIntakeTest extends TestCase
         // Clean up any ticket rows this test created so repeated runs
         // start from a known state; ticket_counters is intentionally left
         // alone (shared, monotonic per period, other tests may depend on it).
+        // Children first -- FK_ticket_events_ticket prevents deleting a
+        // tickets row while ticket_events rows still reference it (Task 3
+        // wired the 'created' event into the same intake transaction).
+        $this->db->run(
+            "DELETE e FROM dbo.ticket_events e JOIN dbo.tickets t ON t.id = e.ticket_id WHERE t.reporter_ref = 'feature-test'",
+        );
         $this->db->run("DELETE FROM dbo.tickets WHERE reporter_ref = 'feature-test'");
     }
 
