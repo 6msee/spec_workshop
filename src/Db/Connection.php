@@ -66,12 +66,35 @@ final class Connection
      * Always prepare() + execute($params) — the only way user input may
      * reach SQL. Never call the raw PDO query method with interpolated strings.
      *
+     * PDO::ERRMODE_EXCEPTION only throws for SQLSTATE error classes; SQL
+     * Server can also return SQLSTATE 01000-class WARNING responses (e.g.
+     * "Cannot grant, deny, or revoke permissions to ... yourself") that
+     * execute() reports as a successful call with no exception, silently
+     * no-op'ing the statement. Empirically confirmed this session while
+     * building migration 006's DENY statement (see 01-01-SUMMARY.md) — a
+     * silently no-op'd permission statement is exactly the kind of failure
+     * a security-critical migration runner must never tolerate. Escalate
+     * every non-success SQLSTATE to a PDOException so callers (in
+     * particular bin/migrate.php) cannot mistake a warning for success.
+     *
      * @param array<int|string, mixed> $params
      */
     public function run(string $sql, array $params = []): PDOStatement
     {
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
+
+        $errorInfo = $stmt->errorInfo();
+
+        if (($errorInfo[0] ?? '00000') !== '00000') {
+            $exception = new PDOException(
+                sprintf('SQLSTATE[%s]: %s', $errorInfo[0], $errorInfo[2] ?? 'unknown warning/error'),
+                0,
+            );
+            $exception->errorInfo = $errorInfo;
+
+            throw $exception;
+        }
 
         return $stmt;
     }
