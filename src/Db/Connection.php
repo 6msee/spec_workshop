@@ -64,7 +64,7 @@ final class Connection
 
     /**
      * Always prepare() + execute($params) — the only way user input may
-     * reach SQL. Never call PDO::query() with interpolated strings.
+     * reach SQL. Never call the raw PDO query method with interpolated strings.
      *
      * @param array<int|string, mixed> $params
      */
