@@ -1,37 +1,39 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-20T04:07:03.561Z",
+  "timestamp": "2026-08-22T05:03:50.725Z",
   "phase": "1",
   "phase_name": "foundations-data-layer-job-queue-infrastructure",
   "phase_dir": ".planning/phases/01-foundations-data-layer-job-queue-infrastructure",
-  "plan": "01-01",
-  "task": 2,
+  "plan": 1,
+  "task": 3,
   "total_tasks": 3,
   "status": "paused",
-  "completed_tasks": [],
+  "completed_tasks": [
+    {"id": 1, "name": "Pin PHP version floor and pdo_sqlsrv release (decision: php83)", "status": "done", "commit": "709c603"},
+    {"id": 2, "name": "Tracer: text intake to ticket number, end-to-end", "status": "done", "commit": "4151c59"},
+    {"id": 2, "name": "Connection::run() escalate SQLSTATE warnings to exceptions (deviation fix)", "status": "done", "commit": "fd7e4dc"},
+    {"id": 3, "name": "ticket_events append-only audit trail (AUDIT-01) — code", "status": "done", "commit": "2339010"},
+    {"id": 3, "name": "ticket_events DENY verification + full test suite green + SUMMARY.md", "status": "in_progress", "progress": "migration 006 applied and DENY verified working as of this pause; a background gsd-executor agent (id a232c6d9f2750327d) was mid-re-run of the full test suite and SUMMARY.md write when this pause was triggered — it may still be running or may have already finished; check ListAgents / message it before starting new work on plan 01-01"}
+  ],
   "remaining_tasks": [
-    {"id": 1, "name": "Select PHP/pdo_sqlsrv version floor (checkpoint:decision)", "status": "auto_resolved_not_applied", "progress": "Executor auto-selected option php83 (PHP 8.3+ + pdo_sqlsrv 5.13.3) per --auto rules, but has not yet written composer.json/README.md/phpunit.xml — re-select or confirm php83 on resume"},
-    {"id": 2, "name": "Tracer: submit text fault report, get ticket number (type=tracer)", "status": "blocked", "progress": "Blocked on unmet <precondition>: reachable SQL Server 2019+, DB_HOST/DB_NAME/DB_USER/DB_PASS in .env, php -m lists pdo_sqlsrv. User is provisioning environment now (chose 'I'll provision it now')."},
-    {"id": 3, "name": "Remaining 01-01-PLAN.md task (append-only ticket_events audit trail, AUDIT-01)", "status": "not_started"}
+    {"id": 3, "name": "Confirm 6/6 TicketEventsImmutabilityTest green, php bin/migrate.php status shows all 5 applied, write 01-01-SUMMARY.md, run self-check, update STATE.md/ROADMAP.md/REQUIREMENTS.md, report PLAN COMPLETE", "status": "in_progress_by_background_agent"},
+    {"id": 4, "name": "Plan 01-02", "status": "not_started"},
+    {"id": 5, "name": "Plan 01-03", "status": "not_started"}
   ],
   "blockers": [
-    {"description": "No PHP, Composer, or SQL Server instance in this sandbox; no passwordless sudo (apt-get install requires interactive auth); no Docker installed in WSL or on Windows host (checked /mnt/c/Program Files/Docker, no docker.sock)", "type": "technical", "workaround": "User is running Stage 1 (PHP 8.5 via native Ubuntu 26.04 apt repo + Composer) manually via `!` prefix. Stage 2 (SQL Server) still undecided — options given: install Docker Desktop w/ WSL2 integration, or point at an existing/remote instance. Stage 3 (unixODBC + Microsoft ODBC Driver 18 + pdo_sqlsrv via PECL) not yet attempted — Ubuntu 26.04 is very new, Microsoft's msodbcsql18 package may not have official 26.04 support yet and could need a jammy/noble repo workaround."}
+    {"description": "SQL Server DENY/GRANT/REVOKE cannot target the executing principal itself — upfix_app could not DENY permissions to itself for migration 006", "type": "technical", "workaround": "Resolved: applied CREATE TABLE + DENY for migration 006 as sa (a separate admin principal), then manually inserted the schema_migrations tracking row. This is expected SQL Server behavior, not a bug — future migrations issuing DENY/GRANT/REVOKE against the app's own login must run the same way, via an admin credential, not via bin/migrate.php's normal upfix_app connection."}
   ],
-  "async_jobs": [],
-  "human_actions_pending": [
-    {"action": "Run Stage 1 command block (apt-get install php8.5-cli + composer install script) via `!` prefix", "context": "Needed before Task 2's tracer slice (composer.json, PHP app code) can execute", "blocking": true},
-    {"action": "Decide Stage 2 SQL Server approach: install Docker Desktop (WSL2 integration) and run mssql/server container, OR point .env at an existing/remote SQL Server instance", "context": "Task 2's <precondition> requires a reachable SQL Server 2019+ with working DB_HOST/DB_NAME/DB_USER/DB_PASS", "blocking": true},
-    {"action": "Install unixODBC + Microsoft ODBC Driver 18 + pdo_sqlsrv (PECL) once PHP/Composer are in place", "context": "pdo_sqlsrv is required for Db/Connection.php (Task 2) and is not yet installed; Ubuntu 26.04 package availability for msodbcsql18 is unverified", "blocking": true}
-  ],
+  "human_actions_pending": [],
   "decisions": [
-    {"decision": "Task 1 checkpoint:decision (PHP version floor) auto-resolved to option php83 — PHP 8.3+ with pdo_sqlsrv 5.13.3 — per --auto mode rules (gate=\"blocking\", not blocking-human)", "rationale": "Planner listed php83 first as the recommended/auto-mode default; STATE.md's carried blocker (pdo_sqlsrv 5.13.0+ requires PHP 8.3+) supports this choice", "phase": "1"},
-    {"decision": "Ubuntu 26.04's native apt repo ships php8.5 (no php8.3 package) — this satisfies the \">=8.3\" constraint from the php83 decision, so no PPA is needed for PHP itself", "rationale": "Checked apt-cache policy; php8.5-cli is the available candidate and 8.5 >= 8.3", "phase": "1"},
-    {"decision": "Chose sequential (no worktree isolation) executor dispatch for all 3 phase-1 plans", "rationale": "Each wave contains exactly one plan (01-01→01-02→01-03 are strictly sequential dependencies) so there is no parallel-safety benefit from worktree isolation, and the /mnt/c WSL cross-filesystem mount makes worktree git operations riskier than necessary", "phase": "1"}
+    {"decision": "PHP 8.3+ with pdo_sqlsrv 5.13.3 (option php83)", "rationale": "Current, actively maintained driver; forward-compatible with 8.4/8.5; matches installed toolchain (PHP 8.5.4 verified working)", "phase": "1"},
+    {"decision": "Live SQL Server instance provisioned at 10.209.30.97:1433 (SQL Server 2019 Express), database upfix created, login/user upfix_app created", "rationale": "No local SQL Server/Docker/sudo available in this WSL environment; user supplied a remote instance instead", "phase": "1"},
+    {"decision": "upfix_app granted db_datareader + db_datawriter + db_ddladmin + db_securityadmin (NOT db_owner, NOT sysadmin)", "rationale": "Narrowest role set that still lets bin/migrate.php run DDL and issue DENY/GRANT for other principals; deliberately avoids incidental rights like ALTER DATABASE/backup permissions; DENY still overrides any GRANT this role membership implies, per SQL Server permission precedence, so AUDIT-01's guarantee is not weakened", "phase": "1"},
+    {"decision": "TrustServerCertificate=true and LoginTimeout hardcoded into Connection.php's DSN string builder (not a new .env key)", "rationale": "User-specified pattern; this SQL Server instance uses a self-signed/default cert", "phase": "1"}
   ],
   "uncommitted_files": [
-    ".planning/STATE.md",
-    ".planning/milestone.lock"
+    "tests/Feature/TicketEventsImmutabilityTest.php",
+    "tests/Feature/TicketIntakeTest.php"
   ],
-  "next_action": "Check whether the user has completed Stage 1 (PHP/Composer install) and decided on Stage 2 (SQL Server: Docker Desktop vs remote instance). If both are ready, re-spawn gsd-executor for plan 01-01 (same prompt as before — required_reading paths + auto_mode + sequential_execution blocks) and let it resume from Task 1 (apply the already-decided php83 choice: write composer.json with \"php\": \">=8.3\", README.md, phpunit.xml) through Task 2 (tracer slice) and Task 3. If environment still not ready, continue troubleshooting Stage 2/3 with the user (Docker Desktop install steps, or msodbcsql18 Ubuntu-26.04 compatibility workaround via jammy/noble apt source).",
-  "context_notes": "Phase 1 of 5 for UP-Fix (University of Phayao maintenance-request system). Planning pipeline (project research → requirements → roadmap → discuss-phase → phase research → pattern-mapper → planner → plan-checker → requirements/decision coverage gates) is fully complete and committed through commit 72e6d6d. Execution just started: gsd-executor was spawned for plan 01-01 (wave 1 of 3, Walking Skeleton per SKELETON.md) and hit a genuine environment blocker at Task 2's <precondition> — no PHP/Composer/SQL Server/Docker exist in this sandbox and apt-get needs interactive sudo. User chose to provision the environment themselves via `!` prefix commands rather than replanning or stopping. Gave Stage 1 (PHP 8.5 + Composer + unixodbc-dev + build tools, all via native Ubuntu 26.04 apt — no PPA needed since repo already has php8.5) as a ready-to-run command block; asked user to choose Stage 2 (SQL Server via Docker Desktop install, or existing/remote instance) but got interrupted by a usage-limit checkpoint before receiving their answer, so pausing here. Waves 2 (01-02, job queue) and 3 (01-03, photo intake) have NOT been dispatched — only wave 1 was attempted. No files were modified or committed by the executor (it stopped cleanly at the precondition check before writing anything). .planning/milestone.lock exists (session lock file, phase 1, this session's PID) — leave it in place, it's expected during active execution, do not delete unless the lock is confirmed stale."
+  "next_action": "Check ListAgents for subagent a232c6d9f2750327d (gsd-core:gsd-executor). If still running, wait for its completion notification. If it finished with '## PLAN COMPLETE', verify 01-01-SUMMARY.md exists and is non-placeholder, then continue execute-phase for plans 01-02 and 01-03 (wave grouping per .planning/phases/01-foundations-data-layer-job-queue-infrastructure/01-02-PLAN.md and 01-03-PLAN.md). If it stopped with another '## CHECKPOINT REACHED', resolve that blocker the same way prior ones were resolved in this session (see blockers/decisions above) and message the agent (SendMessage to a232c6d9f2750327d) to resume — do not spawn a duplicate executor for plan 01-01.",
+  "context_notes": "Session provisioned a brand-new remote SQL Server instance mid-plan (user supplied sa credentials for 10.209.30.97), created the upfix DB and upfix_app login/roles by hand via ad-hoc PHP PDO scripts (not via any migration), and manually applied migration 006 as sa because upfix_app cannot DENY permissions to itself. .env at repo root holds the live upfix_app credentials (gitignored, not committed) — do not regenerate or lose this password; if it's needed again and unknown, ask the user rather than resetting the login (resetting would just require re-running the same grant sequence, which is cheap, but avoid unnecessary churn)."
 }
