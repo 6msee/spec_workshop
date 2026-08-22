@@ -31,15 +31,13 @@ final class TicketEventsImmutabilityTest extends TestCase
         $this->db = Connection::fromEnv();
     }
 
-    protected function tearDown(): void
-    {
-        // Children first -- FK_ticket_events_ticket prevents deleting a
-        // tickets row while ticket_events rows still reference it.
-        $this->db->run(
-            "DELETE e FROM dbo.ticket_events e JOIN dbo.tickets t ON t.id = e.ticket_id WHERE t.reporter_ref = 'immutability-test'",
-        );
-        $this->db->run("DELETE FROM dbo.tickets WHERE reporter_ref = 'immutability-test'");
-    }
+    // No tearDown() cleanup: dbo.ticket_events is genuinely append-only
+    // (DENY UPDATE, DELETE ON dbo.ticket_events TO upfix_app -- this is
+    // exactly what this test class proves), and a tickets row cannot be
+    // deleted once FK_ticket_events_ticket rows reference it. Rows created
+    // here are permanent, matching real production behaviour; every
+    // assertion below keys off its own fresh UUID ticket id, so
+    // accumulated rows from prior runs never interfere.
 
     #[Test]
     public function creatingATicketYieldsExactlyOneCreatedEvent(): void

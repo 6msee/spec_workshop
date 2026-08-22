@@ -22,19 +22,14 @@ final class TicketIntakeTest extends TestCase
         $this->db = Connection::fromEnv();
     }
 
-    protected function tearDown(): void
-    {
-        // Clean up any ticket rows this test created so repeated runs
-        // start from a known state; ticket_counters is intentionally left
-        // alone (shared, monotonic per period, other tests may depend on it).
-        // Children first -- FK_ticket_events_ticket prevents deleting a
-        // tickets row while ticket_events rows still reference it (Task 3
-        // wired the 'created' event into the same intake transaction).
-        $this->db->run(
-            "DELETE e FROM dbo.ticket_events e JOIN dbo.tickets t ON t.id = e.ticket_id WHERE t.reporter_ref = 'feature-test'",
-        );
-        $this->db->run("DELETE FROM dbo.tickets WHERE reporter_ref = 'feature-test'");
-    }
+    // No tearDown() cleanup: as of Task 3, dbo.ticket_events is genuinely
+    // append-only (DENY UPDATE, DELETE ON dbo.ticket_events TO upfix_app),
+    // and a tickets row cannot be deleted once FK_ticket_events_ticket
+    // rows reference it -- attempting to delete either from this login is
+    // now correctly rejected, exactly as AUDIT-01 requires. Test rows
+    // created here are permanent, matching real production behaviour;
+    // each test's assertions key off its own fresh UUID ticket id, so
+    // accumulated rows from prior runs never interfere.
 
     #[Test]
     public function creatingATicketReturns201WithAWellFormedTicketNo(): void
