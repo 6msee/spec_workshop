@@ -1,0 +1,34 @@
+{
+    "name": "up-fix/up-fix",
+    "description": "UP-Fix - Smart Maintenance Request System (Division of Buildings and Grounds, University of Phayao)",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.3",
+        "ext-pdo_sqlsrv": "*",
+        "ext-mbstring": "*",
+        "ext-fileinfo": "*",
+        "vlucas/phpdotenv": "^5.6",
+        "ramsey/uuid": "^4.7",
+        "monolog/monolog": "^3.10"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "UpFix\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "UpFix\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

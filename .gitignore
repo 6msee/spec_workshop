@@ -5,3 +5,4 @@
 /storage/media/*
 !/storage/media/.gitkeep
 .phpunit.result.cache
+.phpunit.cache/
